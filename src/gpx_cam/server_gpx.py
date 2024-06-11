@@ -229,6 +229,11 @@ class RecordHandler(tornado.web.RequestHandler):
 
         is_recording = self.get_argument('isRecording') == 'true'
         if is_recording:
+
+            # check for dir and create if needed 
+            if not os.path.exists("../../data"):
+                os.makedirs("../../data")
+
             fn = f"../../data/{record_filename}.gpx"
             gpx = gpxpy.gpx.GPX()
 
@@ -275,7 +280,7 @@ class RecordHandler(tornado.web.RequestHandler):
             print("Recording stopped")
             DO_RECORD = False
             # self.thread.join()
-            # Add your stop recording logic here
+
 
 
 class FilenameHandler(tornado.web.RequestHandler):
@@ -284,26 +289,6 @@ class FilenameHandler(tornado.web.RequestHandler):
         record_filename = self.get_argument('videoFile')
         print(f"Record filename: {record_filename }")
 
-# class StatusHandler(tornado.web.RequestHandler):
-
-#     def initialize(self):
-#         self.set_header('Content-Type', 'text/event-stream')
-#         self.set_header('Cache-Control', 'no-cache')
-#         self.set_header('Connection', 'keep-alive')
-
-#     def get(self):
-#         global global_status
-#         self.write(f"data: {global_status}\n\n")
-#         self.flush()
-#     # async def get(self):
-#     #     while True:
-#     #         if hasattr(self, 'status'):
-#     #             self.write(f"data: {tornado.escape.json_encode(self.status)}\n\n")
-#     #             await self.flush()
-#     #         await tornado.gen.sleep(1)  # Check for updates every second
-
-#     def update_status(self, status):
-#         self.status = status
 
 class StatusHandler(tornado.web.RequestHandler):
     clients = set()
@@ -441,32 +426,30 @@ def process_mavlink_data():
 
 
 loop = None
-
+KEYBOARD = False
 def main():
     global loop
     # Create a new thread and start it
     mavlink_thread = threading.Thread(target=process_mavlink_data, daemon=True)
     mavlink_thread.start()
-
-    # Save the current terminal settings
-    old_settings = termios.tcgetattr(sys.stdin)
+    
+    if KEYBOARD:
+        # Save the current terminal settings
+        old_settings = termios.tcgetattr(sys.stdin)
 
     try:
-        # Set the terminal to unbuffered mode
-        tty.setcbreak(sys.stdin.fileno())
-        # output = StreamingOutput()
-        # # encoder = H264Encoder(repeat=True, framerate=framerate, qp=23)
-        # # encoder = H264Encoder(repeat=True, framerate=15, bitrate=2000000)
-        # encoder = H264Encoder(repeat=True, framerate=framerate_encoder, qp=20)
-        # encoder.output = output
-        # picam2.start_recording(encoder, output)
+        if KEYBOARD:
+            # Set the terminal to unbuffered mode
+            tty.setcbreak(sys.stdin.fileno())
+
 
         application = tornado.web.Application(requestHandlers)
         application.listen(serverPort)
         loop = tornado.ioloop.IOLoop.current()
         # output.setLoop(loop)
-        # Add the keyboard handler to the IOLoop
-        loop.add_handler(sys.stdin.fileno(), keyboard_handler, loop.READ)
+        if KEYBOARD:
+            # Add the keyboard handler to the IOLoop
+            loop.add_handler(sys.stdin.fileno(), keyboard_handler, loop.READ)
 
         loop.start()
     except KeyboardInterrupt:
@@ -474,8 +457,9 @@ def main():
         loop.stop()
         print("********  KeyboardInterrupt")
     finally:
-        print("********  Restore the terminal settings")
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+        if KEYBOARD:
+            print("********  Restore the terminal settings")
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
 
 if __name__ == "__main__":

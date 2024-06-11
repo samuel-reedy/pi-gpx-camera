@@ -30,7 +30,7 @@ When server.py is running the feed can be vied from any broswer via the followin
     ```
 
 5. Install the [Pi GPX Camera package](https://github.com/Revive-Our-Gulf/pi-gpx-camera) and create a venv with system-site-packages enabled
-    ```
+    ``` sh
     mkdir repos
     cd repos
     git clone https://github.com/Revive-Our-Gulf/pi-gpx-camera.git
@@ -41,16 +41,40 @@ When server.py is running the feed can be vied from any broswer via the followin
     pip install -e .
     ```
 
+# Mavlink
+Setup a MAV endpoint in Blueos as follows 
+![BlueOS MAVLink Endpoint](readmeAssets/blueos-mavlink-endpoint.png)
+This allows the gpx info to be collected .
+
+# To Run
+``` sh
+ ~/repos/pi-gpx-camera/venv/bin/servegpx
+```
+Then on browser navigate to  [http://10.42.0.116:8075/center/](http://10.42.0.116:8075/center/) 
+
+![pi-gpx-cam.gif](readmeAssets/pi-gpx-cam.gif)
+
+Start recording will begin a save of the gpx file in `~/repos/pi-gpx-camera/data`
+
+You can set the name the files saved in the input box.
+
+# The run as a service
+
+Run this script so the server runs at startup
+
+``` sh
+./scripts/setup-service.sh 
+```
+
+To stop the service 
+``` sh
+sudo systemctl stop runserver.service
+```
 
 # Optional configuration
 open server.py and edit the following section of code as needed. 
 - The webserver will run on the port you set **_serverPort_** to.  
 - Refer to the Picamera2 documentation for details on how to configure it. A lage number of options exist 
-
-
-# Mavlink
-Setup a MAV endpoint in Blueos as follows 
-![BlueOS MAVLink Endpoint](readmeAssets/blueos-mavlink-endpoint.png)
 
 
 # other
