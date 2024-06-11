@@ -1,0 +1,65 @@
+[build-system]
+requires      = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pi-H264-to-browser"
+version = "0.0.2"
+description = "camera recording and mavlink to gpx file "
+readme = "README.md"
+authors = [{ name = "John Newton", email = "xyz@abc.com" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["detector"]
+dependencies = [
+    "tornado",
+    "gpxpy",
+    ]
+
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+build = ["build", "twine"]
+dev   = ["black", "bumpver", "isort", "mypy", "pip-tools", "pytest"]
+
+[project.scripts]
+servecam = "gpx_cam.server:main"
+servegpx = "gpx_cam.server_gpx:main"
+
+[project.urls]
+repository    = "https://github.com/Revive-Our-Gulf/pi-gpx-camera"
+documentation = "https://github.com/Revive-Our-Gulf/pi-gpx-camera/readme.md"
+
+
+[tool.bumpver]
+current_version = "0.0.1"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message  = "bump version {old_version} -> {new_version}"
+commit          = true
+tag             = true
+push            = false
+
+    [tool.bumpver.file_patterns]
+    "pyproject.toml" = [
+        'current_version = "{version}"',
+        'version = "{version}"',
+    ]
+    "src/gpx_cam/__init__.py" = ["{version}"]
+    "src/gpx_camr/server.py" = ["- gpx_cam v0.0.1"]
+
+[tool.isort]
+profile                   = "black"
+import_heading_stdlib     = "Standard library imports"
+import_heading_thirdparty = "Third party imports"
+import_heading_firstparty = "Reader imports"
+
+# [tool.mypy]
+# strict = true
+
+#     [[tool.mypy.overrides]]
+#     module                 = "feedparser"
+#     ignore_missing_imports = true

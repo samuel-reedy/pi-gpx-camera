@@ -1,0 +1,33 @@
+# .gitignore
+
+# Ignore Python build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*~
+
+# Ignore Python virtual environments
+venv/
+
+# Ignore Jupyter Notebook files
+.ipynb_checkpoints
+
+# Ignore VS Code settings
+.vscode/
+
+*.gpx
+*.jpg
+*.qoi
+*.mjpeg
+*.avi
+*.h264
+*.mp4
+*.mkv
+*.mov
+*.wmv
+*.flv
+*.webm
+*.jpeg
+
+*.egg-info
