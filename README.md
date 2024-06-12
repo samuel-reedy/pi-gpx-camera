@@ -4,9 +4,10 @@
 
 # Viewing
 When server.py is running the feed can be vied from any broswer via the following urls. **_rpi_address_** is the ip address or hostname of your Raspberry Pi, and **_serverPort_** is the port you set in the configuration section.  
-1. The primary viewing screen 
+
+1. The primary viewing screen  (not currently workimg!!!)
     ```
-    http://<rpi_address>:<serverPort>/
+    http://<rpi_address>:<serverPort>/   
     ```
 2. The focus peaking screen 
     ```
@@ -47,6 +48,8 @@ Setup a MAV endpoint in Blueos as follows
 This allows the gpx info to be collected .
 
 # To Run
+
+Normally this will automatically start on boot as a service, see services below
 ``` sh
  ~/repos/pi-gpx-camera/venv/bin/servegpx
 ```
@@ -60,15 +63,29 @@ You can set the name the files saved in the input box.
 
 # File Manager
 
+The view, download and delete files navigate to http://10.42.0.116:8085/
+
+> **Note**: The window needs to be manually refreshed to see new files (needs a periodic update /  file watcher)
+
+![filemanager](readmeAssets/filemanager.png)
+
+
+You may need to start the filemanager (if not running as a service)
 ``` sh
 filemanager
 ```
+
 # To run as a service
 
 Run this script so the server runs at startup
 
 ``` sh
 ./scripts/setup-service.sh 
+```
+Show Status of the service 
+``` sh
+systemctl status runserver.service
+systemctl status filemanager.service
 ```
 
 To stop the service 

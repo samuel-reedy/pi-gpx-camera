@@ -1,0 +1,13 @@
+[Unit]
+Description=run on startup
+After=rc-local.service
+
+[Service]
+Type=simple
+Restart=no
+RestartSec=10
+ExecStart=/home/pi/repos/pi-gpx-camera/venv/bin/filemanager
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

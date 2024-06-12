@@ -13,7 +13,6 @@ from . import modules
 
 source_dir = os.path.dirname(__file__)
 top_dir = os.path.dirname(source_dir)
-print(f"source_dir: {source_dir}, top_dir: {top_dir}")
 
 class FMApplication(tornado.web.Application):
     def __init__(self, rootpath):
@@ -41,7 +40,4 @@ class FMApplication(tornado.web.Application):
 
 def make_application(rootdir):
     rootdir = os.path.expanduser(rootdir)
-    fma = FMApplication(rootdir)
-    print(f"Root directory: {rootdir}")
-    print(fma.settings)
-    return fma
+    return FMApplication(rootdir)
