@@ -34,7 +34,7 @@ When server.py is running the feed can be vied from any broswer via the followin
     mkdir repos
     cd repos
     git clone https://github.com/Revive-Our-Gulf/pi-gpx-camera.git
-    cd ppi-gpx-camera
+    cd pi-gpx-camera
     python -m venv --system-site-packages 'venv'
     source ./venv/bin/activate
     pip install --upgrade pip
@@ -58,7 +58,12 @@ Start recording will begin a save of the gpx file in `~/repos/pi-gpx-camera/data
 
 You can set the name the files saved in the input box.
 
-# The run as a service
+# File Manager
+
+``` sh
+filemanager
+```
+# To run as a service
 
 Run this script so the server runs at startup
 

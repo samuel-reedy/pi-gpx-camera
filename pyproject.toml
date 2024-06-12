@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pi-gpx-camera"
-version = "0.0.2"
+version = "0.0.1"
 description = "camera recording and mavlink to gpx file "
 readme = "README.md"
 authors = [{ name = "John Newton", email = "xyz@abc.com" }]
@@ -17,8 +17,10 @@ classifiers = [
 keywords = ["detector"]
 dependencies = [
     "tornado",
+    "requests",
     "gpxpy",
     "pymavlink",
+    "opencv-python",
     ]
 
 requires-python = ">=3.8"
@@ -30,6 +32,7 @@ dev   = ["black", "bumpver", "isort", "mypy", "pip-tools", "pytest"]
 [project.scripts]
 servecam = "gpx_cam.server:main"
 servegpx = "gpx_cam.server_gpx:main"
+filemanager = "file_manager.run:main"
 
 [project.urls]
 repository    = "https://github.com/Revive-Our-Gulf/pi-gpx-camera"

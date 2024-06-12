@@ -1,0 +1,11 @@
+<!-- <a href="/{{ relpath }}" class="list-group-item">
+	<img src="/static/img/ic_insert_drive_file_black_24dp_1x.png" />	
+	{{ escape(name) }}
+</a> -->
+<div class="list-group-item">
+    <a href="/{{ relpath }}">
+        <img src="/static/img/ic_insert_drive_file_black_24dp_1x.png" />	
+        {{ escape(name) }}
+    </a>
+    <a href="/delete/{{ relpath }}" class="btn btn-danger btn-sm float-right">Delete</a>
+</div>

@@ -31,3 +31,5 @@ venv/
 *.jpeg
 
 *.egg-info
+
+data/*
