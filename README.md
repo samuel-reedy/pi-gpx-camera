@@ -99,7 +99,9 @@ open server.py and edit the following section of code as needed.
 - Refer to the Picamera2 documentation for details on how to configure it. A lage number of options exist 
 
 
-# other
+#  if not running on Blue-os rPi
+The Blue os might be using legacy camera, check first:
+
 Disable legacy camera with `sudo raspi-config`
 
 
