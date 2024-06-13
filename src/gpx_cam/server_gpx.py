@@ -1,5 +1,8 @@
 """
-    https://github.com/kroketio/pi-h264-to-browser/tree/main/src
+    Version:
+--------
+
+- gpx_cam v0.0.1
 """
 
 import os
@@ -7,13 +10,12 @@ import os
 import tornado.web, tornado.ioloop, tornado.websocket  
 import tornado.gen
 from string import Template
-import os, socket
+import io, os, socket
 
-# from picamera2 import Picamera2, MappedArray
-# from picamera2.encoders import H264Encoder
-# from picamera2.encoders import JpegEncoder
-# from picamera2.outputs import Output
-# from picamera2.outputs import FfmpegOutput
+from picamera2 import Picamera2, MappedArray
+from picamera2.encoders import H264Encoder
+from picamera2.outputs import Output
+from picamera2.outputs import FfmpegOutput
 from pymavlink import mavutil
 import time
 import cv2
@@ -37,31 +39,31 @@ framerate_encoder = 15
 CAM_TYPE = "hq-6mm-CS-pi"
 DO_RECORD = False
 record_filename = "transect-001"
-RUN_CAMERA = False
+RUN_CAMERA = True
 
-# picam2 = Picamera2()
+picam2 = Picamera2()
 
-# full_resolution = picam2.sensor_resolution
+full_resolution = picam2.sensor_resolution
 # # 0.8 resolution
-# o8_resolution = [int(dim * 0.8) for dim in picam2.sensor_resolution]
-# o6_resolution = [int(dim * 0.6) for dim in picam2.sensor_resolution]
-# half_resolution = [dim // 2 for dim in picam2.sensor_resolution]
-# third_resolution = [dim // 3 for dim in picam2.sensor_resolution]
-# quarter_resolution = [dim // 3 for dim in picam2.sensor_resolution]
-# # main_stream = {"size": half_resolution}
-# main_stream = {'format': 'RGB888', 'size': full_resolution}
-# lores_stream = {"size": (640, 480)}
-# lores_stream = {"size": (1280, 960)}
-# # lores_stream = {"size": (1920, 1080)}
-# # lores_stream = {"size": quarter_resolution}
-# print(f"{main_stream = }")
-# print(f"{lores_stream = }")
+o8_resolution = [int(dim * 0.8) for dim in picam2.sensor_resolution]
+o6_resolution = [int(dim * 0.6) for dim in picam2.sensor_resolution]
+half_resolution = [dim // 2 for dim in picam2.sensor_resolution]
+third_resolution = [dim // 3 for dim in picam2.sensor_resolution]
+quarter_resolution = [dim // 3 for dim in picam2.sensor_resolution]
+# main_stream = {"size": half_resolution}
+main_stream = {'format': 'RGB888', 'size': full_resolution}
+lores_stream = {"size": (640, 480)}
+lores_stream = {"size": (1280, 960)}
+# lores_stream = {"size": (1920, 1080)}
+# lores_stream = {"size": quarter_resolution}
+print(f"{main_stream = }")
+print(f"{lores_stream = }")
 
-# if RUN_CAMERA:
-#     video_config = picam2.create_video_configuration(main_stream, lores_stream, encode="lores", buffer_count=2)
-#     picam2.configure(video_config)
-#     picam2.start()
-#     picam2.controls.ExposureTime = 20000
+if RUN_CAMERA:
+    video_config = picam2.create_video_configuration(main_stream, lores_stream, encode="lores", buffer_count=2)
+    picam2.configure(video_config)
+    picam2.start()
+    picam2.controls.ExposureTime = 20000
 
 colour = (0,255, 0)
 origin = (0, 30)
@@ -70,19 +72,21 @@ scale = 1
 thickness = 2
 
 GLOBAL_POSITION_INT_msg = None
-# def apply_timestamp(request):
-#     global GLOBAL_POSITION_INT_msg
-#     timestamp = time.strftime("%Y-%m-%d %X")
-#     with MappedArray(request, "main") as m:
-#         # Calculate the width and height of the text box
-#         (text_width, text_height) = cv2.getTextSize(str(GLOBAL_POSITION_INT_msg), font, scale, thickness)[0]
-#         # Draw a black rectangle under the text
-#         cv2.rectangle(m.array, (0, 30 - text_height-5), (text_width, 40), (0, 0, 0), -1)
-#         cv2.putText(m.array, str(GLOBAL_POSITION_INT_msg), (0, 30), font, scale, colour, thickness)
-#         # cv2.putText(m.array, 'RECORDING', (1700, 1050), font, scale, (255, 0, 0), 3)
+PRE_CALLBACK = False
+if PRE_CALLBACK:
+    def apply_timestamp(request):
+        global GLOBAL_POSITION_INT_msg
+        # timestamp = time.strftime("%Y-%m-%d %X")
+        with MappedArray(request, "main") as m:
+            # Calculate the width and height of the text box
+            (text_width, text_height) = cv2.getTextSize(str(GLOBAL_POSITION_INT_msg), font, scale, thickness)[0]
+            # Draw a black rectangle under the text
+            cv2.rectangle(m.array, (0, 30 - text_height-5), (text_width, 40), (0, 0, 0), -1)
+            cv2.putText(m.array, str(GLOBAL_POSITION_INT_msg), (0, 30), font, scale, colour, thickness)
+            # cv2.putText(m.array, 'RECORDING', (1700, 1050), font, scale, (255, 0, 0), 3)
 
 
-# picam2.pre_callback = apply_timestamp
+    picam2.pre_callback = apply_timestamp
 
 
 focusPeakingColor = '1.0, 0.0, 0.0, 1.0'
@@ -119,22 +123,22 @@ gridHtml = templatize(getFile('grid.html'), {'ip':serverIp, 'port':serverPort, '
 focusHtml = templatize(getFile('focus.html'), {'ip':serverIp, 'port':serverPort, 'fps':framerate, 'color':focusPeakingColor, 'threshold':focusPeakingthreshold})
 jmuxerJs = getFile('jmuxer.min.js')
 
-# class StreamingOutput(Output):
-    # def __init__(self):
-    #     # self.frameTypes = PiVideoFrameType()
-    #     self.loop = None
-    #     self.buffer = io.BytesIO()
+class StreamingOutput(Output):
+    def __init__(self):
+        # self.frameTypes = PiVideoFrameType()
+        self.loop = None
+        self.buffer = io.BytesIO()
 
 
-    # def setLoop(self, loop):
-    #     self.loop = loop
+    def setLoop(self, loop):
+        self.loop = loop
 
-    # def outputframe(self, frame, keyframe=True, timestamp=None):
-    #     self.buffer.write(frame)
-    #     if self.loop is not None and wsHandler.hasConnections():
-    #         self.loop.add_callback(callback=wsHandler.broadcast, message=self.buffer.getvalue())
-    #     self.buffer.seek(0)
-    #     self.buffer.truncate()
+    def outputframe(self, frame, keyframe=True, timestamp=None):
+        self.buffer.write(frame)
+        if self.loop is not None and wsHandler.hasConnections():
+            self.loop.add_callback(callback=wsHandler.broadcast, message=self.buffer.getvalue())
+        self.buffer.seek(0)
+        self.buffer.truncate()
 
 class wsHandler(tornado.websocket.WebSocketHandler):
     connections = []
@@ -234,7 +238,8 @@ class RecordHandler(tornado.web.RequestHandler):
             if not os.path.exists("../../data"):
                 os.makedirs("../../data")
 
-            fn = f"../../data/{record_filename}.gpx"
+            fn_gpx = f"../../data/{record_filename}.gpx"
+            fn_vid = f'../../data/{record_filename}.avi'
             gpx = gpxpy.gpx.GPX()
 
             # Create a new track in our GPX file
@@ -247,29 +252,65 @@ class RecordHandler(tornado.web.RequestHandler):
             DO_RECORD = True
             # Define your recording logic in a function
             def record():
-                global record_filename, DO_RECORD
-                status = f'Recording to {fn}'
+                global record_filename
+                status = f'Recording to {fn_gpx} & {fn_vid}'
                 print(status)
                 StatusHandler.update_status(status)
+                quality = 90
+
+                output = FfmpegOutput(fn_vid,)
+                output.start()
+                fps = 0
+                frame_count = 0
+                start_time = time.time()
+                last_time = start_time
                 while DO_RECORD:
 
-                    time.sleep(1)
-                    # print(f'{GLOBAL_POSITION_INT_msg = }')
                     msg = GLOBAL_POSITION_INT_msg
                     altitude = msg.alt / 1000.0
                     lat = msg.lat / 1.0e7
                     lon = msg.lon/ 1.0e7
                     gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), speed=0.0,symbol='Waypoint'))
+                    # todo add photo frame number
+
+                    # print(f'{GLOBAL_POSITION_INT_msg = }')
+                    if RUN_CAMERA:
+                        arr = picam2.capture_array()
+                        text = f'#{frame_count}, {lat}, {lon}, {altitude}'
+
+                        (text_width, text_height) = cv2.getTextSize(text, font, scale, thickness)[0]
+                        # Draw a black rectangle under the text
+                        cv2.rectangle(arr, (0, 30 - text_height-5), (text_width, 40), (0, 0, 0), -1)
+                        cv2.putText(arr, str(text), (0, 30), font, scale, colour, thickness)
+
+                        is_success, buffer = cv2.imencode(".jpg", arr, [cv2.IMWRITE_JPEG_QUALITY, quality])
+                        output.outputframe(buffer.tobytes())
+                    else:
+                        time.sleep(1)
+
 
 
                     # print(f'Total time taken cv jpg: {time.time()-start_time} seconds')
                     # cv2.imwrite(f'output-q-{quality}.jpg', arr, [cv2.IMWRITE_JPEG_QUALITY, quality])
+                        # Increment the frame count
+                    frame_count += 1
+                    avg_fps = frame_count / (time.time() - start_time)
 
-                with open(fn, 'w') as f:
+                    # on every second
+                    if time.time() - last_time > 1: 
+                        status = f'video fps = {avg_fps:.2f}  {frame_count = }'
+                        print(status)
+                        StatusHandler.update_status(status)
+                        last_time = time.time()
+
+                # save video and gpx
+                output.stop()
+                with open(fn_gpx, 'w') as f:
                     f.write(gpx.to_xml())
-                    status = f'Saved to {fn}'
-                    print(status)
-                    StatusHandler.update_status(status)
+
+                status = f'Saved to {fn_gpx} & {fn_vid}'
+                print(status)
+                StatusHandler.update_status(status)
             # Create and start a thread running the record function
             self.thread = threading.Thread(target=record)
             self.thread.start()
@@ -442,18 +483,29 @@ def main():
             # Set the terminal to unbuffered mode
             tty.setcbreak(sys.stdin.fileno())
 
+        if RUN_CAMERA:
+            output = StreamingOutput()
+            # encoder = H264Encoder(repeat=True, framerate=framerate, qp=23)
+            # encoder = H264Encoder(repeat=True, framerate=15, bitrate=2000000)
+            encoder = H264Encoder(repeat=True, framerate=framerate_encoder, qp=20)
+            encoder.output = output
+            picam2.start_recording(encoder, output)
 
         application = tornado.web.Application(requestHandlers)
         application.listen(serverPort)
         loop = tornado.ioloop.IOLoop.current()
-        # output.setLoop(loop)
+
+        if RUN_CAMERA:
+            output.setLoop(loop)
         if KEYBOARD:
             # Add the keyboard handler to the IOLoop
             loop.add_handler(sys.stdin.fileno(), keyboard_handler, loop.READ)
 
         loop.start()
     except KeyboardInterrupt:
-        # picam2.stop_recording()
+        if RUN_CAMERA:
+            picam2.stop_recording()
+
         loop.stop()
         print("********  KeyboardInterrupt")
     finally:
