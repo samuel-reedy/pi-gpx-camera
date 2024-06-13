@@ -30,8 +30,7 @@ build = ["build", "twine"]
 dev   = ["black", "bumpver", "isort", "mypy", "pip-tools", "pytest"]
 
 [project.scripts]
-servecam = "gpx_cam.server:main"
-servegpx = "gpx_cam.server_gpx:main"
+gpxcam = "gpx_cam.server_gpx:main"
 filemanager = "file_manager.run:main"
 
 [project.urls]
@@ -53,7 +52,7 @@ push            = false
         'version = "{version}"',
     ]
     "src/gpx_cam/__init__.py" = ["{version}"]
-    "src/gpx_camr/server.py" = ["- gpx_cam v0.0.1"]
+    "src/gpx_camr/server_gpx.py" = ["- gpx_cam v0.0.1"]
 
 [tool.isort]
 profile                   = "black"

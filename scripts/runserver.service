@@ -6,7 +6,7 @@ After=rc-local.service
 Type=simple
 Restart=no
 RestartSec=10
-ExecStart=/home/pi/repos/pi-gpx-camera/venv/bin/servegpx
+ExecStart=/home/pi/repos/pi-gpx-camera/venv/bin/gpxcam
 RemainAfterExit=yes
 
 [Install]

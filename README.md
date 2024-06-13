@@ -51,7 +51,7 @@ This allows the gpx info to be collected .
 
 Normally this will automatically start on boot as a service, see services below
 ``` sh
- ~/repos/pi-gpx-camera/venv/bin/servegpx
+ ~/repos/pi-gpx-camera/venv/bin/gpxcam
 ```
 Then on browser navigate to  [http://10.42.0.116:8075/center/](http://10.42.0.116:8075/center/) 
 
