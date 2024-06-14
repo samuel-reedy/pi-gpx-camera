@@ -57,7 +57,8 @@ Then on browser navigate to  [http://10.42.0.116:8075/center/](http://10.42.0.11
 
 ![pi-gpx-cam.gif](readmeAssets/pi-gpx-cam.gif)
 
-Start recording will begin a save of the gpx file in `~/repos/pi-gpx-camera/data`
+Start recording will begin a save of the gpx file and camera video in `~/repos/pi-gpx-camera/data`
+The video file is mjpeg full res images but is only create if the camera is present.
 
 You can set the name the files saved in the input box.
 

@@ -11,11 +11,15 @@ import tornado.web, tornado.ioloop, tornado.websocket
 import tornado.gen
 from string import Template
 import io, os, socket
-
+# try:
 from picamera2 import Picamera2, MappedArray
 from picamera2.encoders import H264Encoder
 from picamera2.outputs import Output
 from picamera2.outputs import FfmpegOutput
+# except:
+#     print("Error in Picamera2, disabling the camera")
+#     RUN_CAMERA = False
+
 from pymavlink import mavutil
 import time
 import cv2
@@ -39,27 +43,31 @@ framerate_encoder = 15
 CAM_TYPE = "hq-6mm-CS-pi"
 DO_RECORD = False
 record_filename = "transect-001"
-RUN_CAMERA = True
 
-picam2 = Picamera2()
-
-full_resolution = picam2.sensor_resolution
-# # 0.8 resolution
-o8_resolution = [int(dim * 0.8) for dim in picam2.sensor_resolution]
-o6_resolution = [int(dim * 0.6) for dim in picam2.sensor_resolution]
-half_resolution = [dim // 2 for dim in picam2.sensor_resolution]
-third_resolution = [dim // 3 for dim in picam2.sensor_resolution]
-quarter_resolution = [dim // 3 for dim in picam2.sensor_resolution]
-# main_stream = {"size": half_resolution}
-main_stream = {'format': 'RGB888', 'size': full_resolution}
-lores_stream = {"size": (640, 480)}
-lores_stream = {"size": (1280, 960)}
-# lores_stream = {"size": (1920, 1080)}
-# lores_stream = {"size": quarter_resolution}
-print(f"{main_stream = }")
-print(f"{lores_stream = }")
+try:
+    picam2 = Picamera2()
+    RUN_CAMERA = True
+except:
+    print("Error in Picamera2, disabling the camera")
+    RUN_CAMERA = False
 
 if RUN_CAMERA:
+    full_resolution = picam2.sensor_resolution
+    # # 0.8 resolution
+    o8_resolution = [int(dim * 0.8) for dim in picam2.sensor_resolution]
+    o6_resolution = [int(dim * 0.6) for dim in picam2.sensor_resolution]
+    half_resolution = [dim // 2 for dim in picam2.sensor_resolution]
+    third_resolution = [dim // 3 for dim in picam2.sensor_resolution]
+    quarter_resolution = [dim // 3 for dim in picam2.sensor_resolution]
+    # main_stream = {"size": half_resolution}
+    main_stream = {'format': 'RGB888', 'size': full_resolution}
+    lores_stream = {"size": (640, 480)}
+    lores_stream = {"size": (1280, 960)}
+    # lores_stream = {"size": (1920, 1080)}
+    # lores_stream = {"size": quarter_resolution}
+    print(f"{main_stream = }")
+    print(f"{lores_stream = }")
+
     video_config = picam2.create_video_configuration(main_stream, lores_stream, encode="lores", buffer_count=2)
     picam2.configure(video_config)
     picam2.start()
@@ -73,7 +81,7 @@ thickness = 2
 
 GLOBAL_POSITION_INT_msg = None
 PRE_CALLBACK = False
-if PRE_CALLBACK:
+if RUN_CAMERA and PRE_CALLBACK:
     def apply_timestamp(request):
         global GLOBAL_POSITION_INT_msg
         # timestamp = time.strftime("%Y-%m-%d %X")
@@ -239,7 +247,8 @@ class RecordHandler(tornado.web.RequestHandler):
                 os.makedirs("../../data")
 
             fn_gpx = f"../../data/{record_filename}.gpx"
-            fn_vid = f'../../data/{record_filename}.avi'
+            fn_vid = f'../../data/{record_filename}.avi' if RUN_CAMERA else 'No Camera Found'
+
             gpx = gpxpy.gpx.GPX()
 
             # Create a new track in our GPX file
@@ -257,9 +266,9 @@ class RecordHandler(tornado.web.RequestHandler):
                 print(status)
                 StatusHandler.update_status(status)
                 quality = 90
-
-                output = FfmpegOutput(fn_vid,)
-                output.start()
+                if RUN_CAMERA:
+                    output = FfmpegOutput(fn_vid,)
+                    output.start()
                 fps = 0
                 frame_count = 0
                 start_time = time.time()
@@ -304,7 +313,8 @@ class RecordHandler(tornado.web.RequestHandler):
                         last_time = time.time()
 
                 # save video and gpx
-                output.stop()
+                if RUN_CAMERA:
+                    output.stop()
                 with open(fn_gpx, 'w') as f:
                     f.write(gpx.to_xml())
 

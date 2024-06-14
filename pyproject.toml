@@ -20,7 +20,7 @@ dependencies = [
     "requests",
     "gpxpy",
     "pymavlink",
-    # "opencv-python",
+    "opencv-python",
     ]
 
 requires-python = ">=3.8"
