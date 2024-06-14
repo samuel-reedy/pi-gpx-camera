@@ -45,7 +45,7 @@ When server.py is running the feed can be vied from any broswer via the followin
 # Mavlink
 Setup a MAV endpoint in Blueos as follows 
 ![BlueOS MAVLink Endpoint](readmeAssets/blueos-mavlink-endpoint.png)
-This allows the gpx info to be collected .
+This allows the gpx info to be collected .  If this is running on another computer than BlueOS then the address will need to be the computers ip address, same port 14560.
 
 # To Run
 
