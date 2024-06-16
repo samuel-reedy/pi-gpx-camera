@@ -24,7 +24,7 @@ from pymavlink import mavutil
 import time
 import cv2
 # import qoi
-import simplejpeg
+import simplejpeg  # simplejpeg is a simple package based on recent versions of libturbojpeg for fast JPEG encoding and decoding.
 
 import gpxpy
 import gpxpy.gpx
@@ -322,7 +322,7 @@ class RecordHandler(tornado.web.RequestHandler):
                                 cv2.putText(arr, str(text), (0, 30), font, scale, colour, thickness)
 
                             # is_success, buffer = cv2.imencode(".jpg", arr, [cv2.IMWRITE_JPEG_QUALITY, quality])
-                            buffer = simplejpeg.encode_jpeg(arr, quality=90, colorspace='RGB', colorsubsampling='420')
+                            buffer = simplejpeg.encode_jpeg(arr, quality=90, colorspace='RGB', colorsubsampling='420', fastdct=True)
                             output.outputframe(buffer)
                         except queue.Empty:
                             time.sleep(1)
