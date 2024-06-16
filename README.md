@@ -89,9 +89,13 @@ systemctl status runserver.service
 systemctl status filemanager.service
 ```
 
-To stop the service 
+To stop and/or disable the service 
 ``` sh
 sudo systemctl stop runserver.service
+sudo systemctl stop filemanager.service
+# and/or
+sudo systemctl disable runserver.service
+sudo systemctl disable filemanager.service
 ```
 
 # Optional configuration

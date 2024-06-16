@@ -24,11 +24,16 @@ from pymavlink import mavutil
 import time
 import cv2
 # import qoi
+import simplejpeg
 
 import gpxpy
 import gpxpy.gpx
 
 from datetime import datetime
+import queue
+import threading
+import time
+
 
 # rgb = np.random.randint(low=0, high=255, size=(224, 244, 3)).astype(np.uint8)
 
@@ -222,14 +227,15 @@ class SSEHandler(tornado.web.RequestHandler):
                 # break out of generator loop
                 break
             try:
-                msg = GLOBAL_POSITION_INT_msg
-                altitude = msg.alt / 1000.0
-                lat = msg.lat/ 1.0e7
-                lon = msg.lon/ 1.0e7
+                if GLOBAL_POSITION_INT_msg is not None:
+                    msg = GLOBAL_POSITION_INT_msg
+                    altitude = msg.alt / 1000.0
+                    lat = msg.lat/ 1.0e7
+                    lon = msg.lon/ 1.0e7
 
-                self.write(f"data: {lat = }  {lon = }  {altitude = } \n\n")
-                self.count += 1
-                await self.flush()
+                    self.write(f"data: {lat = }  {lon = }  {altitude = } \n\n")
+                    self.count += 1
+                    await self.flush()
             except Exception as e:
                 print("Error in SSEHandler", e)
                 pass
@@ -239,29 +245,49 @@ class RecordHandler(tornado.web.RequestHandler):
     def post(self):
         global DO_RECORD, GLOBAL_POSITION_INT_msg, record_filename
 
+
         is_recording = self.get_argument('isRecording') == 'true'
         if is_recording:
 
             # check for dir and create if needed 
             if not os.path.exists("../../data"):
                 os.makedirs("../../data")
-
-            fn_gpx = f"../../data/{record_filename}.gpx"
+            
+            fn_gpx = f"../../data/{record_filename}.gpx" if GLOBAL_POSITION_INT_msg else 'No position MAV messages found'
             fn_vid = f'../../data/{record_filename}.avi' if RUN_CAMERA else 'No Camera Found'
+            if GLOBAL_POSITION_INT_msg is not None:
+                gpx = gpxpy.gpx.GPX()
 
-            gpx = gpxpy.gpx.GPX()
+                # Create a new track in our GPX file
+                gpx_track = gpxpy.gpx.GPXTrack(name='transect 1', description='transect 1 description')
+                gpx.tracks.append(gpx_track)
 
-            # Create a new track in our GPX file
-            gpx_track = gpxpy.gpx.GPXTrack(name='transect 1', description='transect 1 description')
-            gpx.tracks.append(gpx_track)
+                # Create first segment in our GPX track:
+                gpx_segment = gpxpy.gpx.GPXTrackSegment()
+                gpx_track.segments.append(gpx_segment)
 
-            # Create first segment in our GPX track:
-            gpx_segment = gpxpy.gpx.GPXTrackSegment()
-            gpx_track.segments.append(gpx_segment)
+
+
             DO_RECORD = True
+            self.q = queue.Queue()
+            def capture_arr():
+                print('Starting capture Thread')
+                # Time delay for 3 frames per second
+                delay = 1 / 3
+                while DO_RECORD:
+                    start_time = time.time()
+                    arr = picam2.capture_array()
+                    self.q.put(arr)
+    
+                    elapsed_time = time.time() - start_time
+                    if elapsed_time < delay:
+                        time.sleep(delay - elapsed_time)
+      
+
             # Define your recording logic in a function
             def record():
                 global record_filename
+                print('Starting record Thread')
                 status = f'Recording to {fn_gpx} & {fn_vid}'
                 print(status)
                 StatusHandler.update_status(status)
@@ -274,26 +300,33 @@ class RecordHandler(tornado.web.RequestHandler):
                 start_time = time.time()
                 last_time = start_time
                 while DO_RECORD:
-
-                    msg = GLOBAL_POSITION_INT_msg
-                    altitude = msg.alt / 1000.0
-                    lat = msg.lat / 1.0e7
-                    lon = msg.lon/ 1.0e7
-                    gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), speed=0.0,symbol='Waypoint'))
-                    # todo add photo frame number
+                    if GLOBAL_POSITION_INT_msg is not None:
+                        msg = GLOBAL_POSITION_INT_msg
+                        altitude = msg.alt / 1000.0
+                        lat = msg.lat / 1.0e7
+                        lon = msg.lon/ 1.0e7
+                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), speed=0.0,symbol='Waypoint'))
+                        # todo add photo frame number
 
                     # print(f'{GLOBAL_POSITION_INT_msg = }')
                     if RUN_CAMERA:
-                        arr = picam2.capture_array()
-                        text = f'#{frame_count}, {lat}, {lon}, {altitude}'
+                        try:
+                            arr = self.q.get()
+                            # arr = picam2.capture_array()
+                            if GLOBAL_POSITION_INT_msg is not None:
+                                text = f'#{frame_count}, {lat}, {lon}, {altitude}'
 
-                        (text_width, text_height) = cv2.getTextSize(text, font, scale, thickness)[0]
-                        # Draw a black rectangle under the text
-                        cv2.rectangle(arr, (0, 30 - text_height-5), (text_width, 40), (0, 0, 0), -1)
-                        cv2.putText(arr, str(text), (0, 30), font, scale, colour, thickness)
+                                (text_width, text_height) = cv2.getTextSize(text, font, scale, thickness)[0]
+                                # Draw a black rectangle under the text
+                                cv2.rectangle(arr, (0, 30 - text_height-5), (text_width, 40), (0, 0, 0), -1)
+                                cv2.putText(arr, str(text), (0, 30), font, scale, colour, thickness)
 
-                        is_success, buffer = cv2.imencode(".jpg", arr, [cv2.IMWRITE_JPEG_QUALITY, quality])
-                        output.outputframe(buffer.tobytes())
+                            # is_success, buffer = cv2.imencode(".jpg", arr, [cv2.IMWRITE_JPEG_QUALITY, quality])
+                            buffer = simplejpeg.encode_jpeg(arr, quality=90, colorspace='RGB', colorsubsampling='420')
+                            output.outputframe(buffer)
+                        except queue.Empty:
+                            time.sleep(1)
+                            # continue
                     else:
                         time.sleep(1)
 
@@ -313,17 +346,28 @@ class RecordHandler(tornado.web.RequestHandler):
                         last_time = time.time()
 
                 # save video and gpx
+                vid_status = fn_vid
+                gpx_status = fn_gpx
                 if RUN_CAMERA:
                     output.stop()
-                with open(fn_gpx, 'w') as f:
-                    f.write(gpx.to_xml())
+                    vid_status = f'video saved to {fn_vid}'
+                if GLOBAL_POSITION_INT_msg is not None:
+                    with open(fn_gpx, 'w') as f:
+                        f.write(gpx.to_xml())
+                        gpx_status += f'gpx saved to {fn_gpx}'
 
-                status = f'Saved to {fn_gpx} & {fn_vid}'
+                status = f'{gpx_status}, {vid_status}'
                 print(status)
                 StatusHandler.update_status(status)
             # Create and start a thread running the record function
-            self.thread = threading.Thread(target=record)
-            self.thread.start()
+            self.rec_thread = threading.Thread(target=record)
+            self.rec_thread.daemon = True
+
+            self.cap_thread = threading.Thread(target=capture_arr)
+            # Set the thread as a daemon so it will end when the main program ends
+            self.cap_thread.daemon = True
+            self.cap_thread.start()
+            self.rec_thread.start()
 
 
 
@@ -398,7 +442,7 @@ StatusHandler.update_status('New status')
 import time
 
 
-import threading
+# import threading
 from pymavlink import mavutil
 import sys 
 import tty
@@ -502,7 +546,13 @@ def main():
             picam2.start_recording(encoder, output)
 
         application = tornado.web.Application(requestHandlers)
-        application.listen(serverPort)
+        try:
+            application.listen(serverPort)
+        except Exception as e:
+            print(f"Error in application.listen(serverPort) {e}")
+            print("is the application running already? , in a service?")
+            return
+            
         loop = tornado.ioloop.IOLoop.current()
 
         if RUN_CAMERA:
