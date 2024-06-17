@@ -85,18 +85,33 @@ scale = 1
 thickness = 2
 
 GLOBAL_POSITION_INT_msg = None
+cap_queue = queue.Queue(maxsize=2)
 PRE_CALLBACK = False
 if RUN_CAMERA and PRE_CALLBACK:
+    mapped_count = 0
     def apply_timestamp(request):
-        global GLOBAL_POSITION_INT_msg
+        global GLOBAL_POSITION_INT_msg, mapped_count
         # timestamp = time.strftime("%Y-%m-%d %X")
         with MappedArray(request, "main") as m:
+            print(f'{mapped_count = } {m.array.shape = }')
+            mapped_count += 1
+
+            # Check if the queue is full
+            if cap_queue.full():
+                # If the queue is full, remove an item before adding a new one
+                cap_queue.get()
+            cap_queue.put(m.array.copy())
+            
+
+
+
+
             # Calculate the width and height of the text box
-            (text_width, text_height) = cv2.getTextSize(str(GLOBAL_POSITION_INT_msg), font, scale, thickness)[0]
-            # Draw a black rectangle under the text
-            cv2.rectangle(m.array, (0, 30 - text_height-5), (text_width, 40), (0, 0, 0), -1)
-            cv2.putText(m.array, str(GLOBAL_POSITION_INT_msg), (0, 30), font, scale, colour, thickness)
-            # cv2.putText(m.array, 'RECORDING', (1700, 1050), font, scale, (255, 0, 0), 3)
+            # (text_width, text_height) = cv2.getTextSize(str(GLOBAL_POSITION_INT_msg), font, scale, thickness)[0]
+            # # Draw a black rectangle under the text
+            # cv2.rectangle(m.array, (0, 30 - text_height-5), (text_width, 40), (0, 0, 0), -1)
+            # cv2.putText(m.array, str(GLOBAL_POSITION_INT_msg), (0, 30), font, scale, colour, thickness)
+            # # cv2.putText(m.array, 'RECORDING', (1700, 1050), font, scale, (255, 0, 0), 3)
 
 
     picam2.pre_callback = apply_timestamp
@@ -241,6 +256,13 @@ class SSEHandler(tornado.web.RequestHandler):
                 pass
             await tornado.gen.sleep(1)  # Wait for 1 second
 
+
+from multiprocessing import Process, Array
+import ctypes
+import io
+# Create a shared memory array
+shared_buffer = Array(ctypes.c_char, 36990720)  # Adjust the size as needed
+cap_count = 0
 class RecordHandler(tornado.web.RequestHandler):
     def post(self):
         global DO_RECORD, GLOBAL_POSITION_INT_msg, record_filename
@@ -271,17 +293,37 @@ class RecordHandler(tornado.web.RequestHandler):
             DO_RECORD = True
             self.q = queue.Queue()
             def capture_arr():
+                global cap_count
                 print('Starting capture Thread')
                 # Time delay for 3 frames per second
                 delay = 1 / 3
+                # output = FfmpegOutput(fn_vid,)
+                # output.start()
                 while DO_RECORD:
-                    start_time = time.time()
-                    arr = picam2.capture_array()
-                    self.q.put(arr)
+                    start_time = time.time()   
+                    success, buffer = picam2.capture_buffer_("main")
+                    if success:
+                        print(f"capture {cap_count}")
+                        print(f'{buffer.shape = }')
+                        cap_count += 1
+                        # shared_buffer.acquire()
+                        # shared_buffer[:] = buffer
+                        # shared_buffer.release()
+
+                        # output.outputframe(buffer)
+                    else:
+                        time.sleep(0.001)
+
+                    # with MappedArray(request, "main") as m:
+                    #     print(f'{mapped_count = } {m.array.shape = }')
+                    #     mapped_count += 1
+                    
+                    # arr = picam2.capture_array()
+                    # self.q.put(arr)
     
-                    elapsed_time = time.time() - start_time
-                    if elapsed_time < delay:
-                        time.sleep(delay - elapsed_time)
+                    # elapsed_time = time.time() - start_time
+                    # if elapsed_time < delay:
+                    #     time.sleep(delay - elapsed_time)
       
 
             # Define your recording logic in a function
