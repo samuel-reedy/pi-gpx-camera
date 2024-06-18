@@ -15,7 +15,8 @@ import io, os, socket
 from picamera2 import Picamera2, MappedArray
 from picamera2.encoders import H264Encoder
 from picamera2.outputs import Output
-from picamera2.outputs import FfmpegOutput
+# from picamera2.outputs import FfmpegOutput
+# from .ffmpegoutput import FfmpegOutput
 # except:
 #     print("Error in Picamera2, disabling the camera")
 #     RUN_CAMERA = False
@@ -34,6 +35,11 @@ import queue
 import threading
 import time
 
+import signal
+import subprocess
+
+import prctl
+import argparse
 
 # rgb = np.random.randint(low=0, high=255, size=(224, 244, 3)).astype(np.uint8)
 
@@ -41,65 +47,64 @@ import time
 # _ = qoi.write("img.qoi", rgb)
 
 # start configuration
-serverPort = 8075
+
 wsURL = "ws://my_ip/ws/"
-framerate = 15
-framerate_encoder = 15
+
 CAM_TYPE = "hq-6mm-CS-pi"
 DO_RECORD = False
 record_filename = "transect-001"
-
+g_RESOLUTION, g_REC_FRAMERATE, g_CAM_FRAMERATE, g_JPG_QUALITY, g_PORT = 0.8, 2, 10, 95, 8075
+GLOBAL_POSITION_INT_msg = None
+resolution = [0, 0]
+framerate_js = g_CAM_FRAMERATE
 try:
+    # assert False
     picam2 = Picamera2()
     RUN_CAMERA = True
 except:
     print("Error in Picamera2, disabling the camera")
     RUN_CAMERA = False
 
-if RUN_CAMERA:
-    full_resolution = picam2.sensor_resolution
-    # # 0.8 resolution
-    o8_resolution = [int(dim * 0.8) for dim in picam2.sensor_resolution]
-    o6_resolution = [int(dim * 0.6) for dim in picam2.sensor_resolution]
-    half_resolution = [dim // 2 for dim in picam2.sensor_resolution]
-    third_resolution = [dim // 3 for dim in picam2.sensor_resolution]
-    quarter_resolution = [dim // 3 for dim in picam2.sensor_resolution]
-    # main_stream = {"size": half_resolution}
-    main_stream = {'format': 'RGB888', 'size': full_resolution}
-    lores_stream = {"size": (640, 480)}
-    lores_stream = {"size": (1280, 960)}
-    # lores_stream = {"size": (1920, 1080)}
-    # lores_stream = {"size": quarter_resolution}
-    print(f"{main_stream = }")
-    print(f"{lores_stream = }")
+def set_camera():
+    if RUN_CAMERA:
 
-    video_config = picam2.create_video_configuration(main_stream, lores_stream, encode="lores", buffer_count=2)
-    picam2.configure(video_config)
-    picam2.start()
-    picam2.controls.ExposureTime = 20000
+        resolution = [int(dim * g_RESOLUTION) for dim in picam2.sensor_resolution]
+        main_stream = {'format': 'BGR888', 'size': resolution}
+        # lores_stream = {"size": (640, 480)}
+        # lores_stream = {"size": (1280, 960)}
+        lores_stream = {"size": (1920, 1080)}
 
-colour = (0,255, 0)
-origin = (0, 30)
-font = cv2.FONT_HERSHEY_SIMPLEX
-scale = 1
-thickness = 2
+        print(f"{main_stream = }")
+        print(f"{lores_stream = }")
 
-GLOBAL_POSITION_INT_msg = None
-PRE_CALLBACK = False
-if RUN_CAMERA and PRE_CALLBACK:
-    def apply_timestamp(request):
-        global GLOBAL_POSITION_INT_msg
-        # timestamp = time.strftime("%Y-%m-%d %X")
-        with MappedArray(request, "main") as m:
-            # Calculate the width and height of the text box
-            (text_width, text_height) = cv2.getTextSize(str(GLOBAL_POSITION_INT_msg), font, scale, thickness)[0]
-            # Draw a black rectangle under the text
-            cv2.rectangle(m.array, (0, 30 - text_height-5), (text_width, 40), (0, 0, 0), -1)
-            cv2.putText(m.array, str(GLOBAL_POSITION_INT_msg), (0, 30), font, scale, colour, thickness)
-            # cv2.putText(m.array, 'RECORDING', (1700, 1050), font, scale, (255, 0, 0), 3)
+        video_config = picam2.create_video_configuration(main_stream, lores_stream, encode="lores", buffer_count=3)
+        picam2.configure(video_config)
+        picam2.start()
+        # picam2.controls.ExposureTime = 20000
+        picam2.set_controls({"ExposureTime": 20000, "FrameRate": g_CAM_FRAMERATE})
+
+        colour = (0,255, 0)
+        origin = (0, 30)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        scale = 1
+        thickness = 2
 
 
-    picam2.pre_callback = apply_timestamp
+        PRE_CALLBACK = False
+        if PRE_CALLBACK:
+            def apply_timestamp(request):
+                global GLOBAL_POSITION_INT_msg
+                # timestamp = time.strftime("%Y-%m-%d %X")
+                with MappedArray(request, "main") as m:
+                    # Calculate the width and height of the text box
+                    (text_width, text_height) = cv2.getTextSize(str(GLOBAL_POSITION_INT_msg), font, scale, thickness)[0]
+                    # Draw a black rectangle under the text
+                    cv2.rectangle(m.array, (0, 30 - text_height-5), (text_width, 40), (0, 0, 0), -1)
+                    cv2.putText(m.array, str(GLOBAL_POSITION_INT_msg), (0, 30), font, scale, colour, thickness)
+                    # cv2.putText(m.array, 'RECORDING', (1700, 1050), font, scale, (255, 0, 0), 3)
+
+
+            picam2.pre_callback = apply_timestamp
 
 
 focusPeakingColor = '1.0, 0.0, 0.0, 1.0'
@@ -130,11 +135,96 @@ def templatize(content, replacements):
     tmpl = Template(content)
     return tmpl.substitute(replacements)
 
-indexHtml = templatize(getFile('index.html'), {'ip':serverIp, 'port':serverPort, 'fps':framerate})
+indexHtml = templatize(getFile('index.html'), {'ip':serverIp, 'port':g_PORT, 'fps':framerate_js})
 
-gridHtml = templatize(getFile('grid.html'), {'ip':serverIp, 'port':serverPort, 'fps':framerate,'color':gridColor, 'thickness':gridThickness})
-focusHtml = templatize(getFile('focus.html'), {'ip':serverIp, 'port':serverPort, 'fps':framerate, 'color':focusPeakingColor, 'threshold':focusPeakingthreshold})
+gridHtml = templatize(getFile('grid.html'), {'ip':serverIp, 'port':g_PORT, 'fps':framerate_js,'color':gridColor, 'thickness':gridThickness})
+focusHtml = templatize(getFile('focus.html'), {'ip':serverIp, 'port':g_PORT, 'fps':framerate_js, 'color':focusPeakingColor, 'threshold':focusPeakingthreshold})
 jmuxerJs = getFile('jmuxer.min.js')
+
+
+class FfmpegOutput(Output):
+    """
+    The FfmpegOutput class allows an encoded video stream to be passed to FFmpeg for output.
+
+    This means we can take advantange of FFmpeg's wide support for different output formats.
+
+    """
+
+    def __init__(self, output_filename, audio=False, audio_device="default", audio_sync=-0.3,
+                 audio_samplerate=48000, audio_codec="aac", audio_bitrate=128000, pts=None):
+        super().__init__(pts=pts)
+        self.ffmpeg = None
+        self.output_filename = output_filename
+        # self.audio = audio
+        # self.audio_device = audio_device
+        # self.audio_sync = audio_sync
+        # self.audio_samplerate = audio_samplerate
+        # self.audio_codec = audio_codec
+        # self.audio_bitrate = audio_bitrate
+        # If we run an audio stream, FFmpeg won't stop so we'll give the video stream a
+        # moment or two to flush stuff out, and then we'll have to terminate the process.
+        self.timeout = 1 if audio else None
+        # A user can set this to get notifications of FFmpeg failures.
+        self.error_callback = None
+        # We don't understand timestamps, so an encoder may have to pace output to us.
+        self.needs_pacing = True
+
+    def start(self):
+        general_options = ['-loglevel', 'warning',
+                           '-y', '-f', 'mjpeg']  # -y means overwrite output without asking
+        # We have to get FFmpeg to timestamp the video frames as it gets them. This isn't
+        # ideal because we're likely to pick up some jitter, but works passably, and I
+        # don't have a better alternative right now.
+        video_input = ['-use_wallclock_as_timestamps', '1',
+                       '-thread_queue_size', '64',  # necessary to prevent warnings
+                       '-i', '-']
+        video_codec = ['-c:v', 'copy']
+        # audio_input = []
+        # audio_codec = []
+        # if self.audio:
+        #     audio_input = ['-itsoffset', str(self.audio_sync),
+        #                    '-f', 'pulse',
+        #                    '-sample_rate', str(self.audio_samplerate),
+        #                    '-thread_queue_size', '1024',  # necessary to prevent warnings
+        #                    '-i', self.audio_device]
+        #     audio_codec = ['-b:a', str(self.audio_bitrate),
+        #                    '-c:a', self.audio_codec]
+
+        command = ['ffmpeg'] + general_options + video_input + \
+             video_codec + self.output_filename.split()
+        # The preexec_fn is a slightly nasty way of ensuring FFmpeg gets stopped if we quit
+        # without calling stop() (which is otherwise not guaranteed).
+        self.ffmpeg = subprocess.Popen(command, stdin=subprocess.PIPE, preexec_fn=lambda: prctl.set_pdeathsig(signal.SIGKILL))
+        super().start()
+
+    def stop(self):
+        super().stop()
+        if self.ffmpeg is not None:
+            self.ffmpeg.stdin.close()  # FFmpeg needs this to shut down tidily
+            try:
+                # Give it a moment to flush out video frames, but after that make sure we terminate it.
+                self.ffmpeg.wait(timeout=self.timeout)
+            except subprocess.TimeoutExpired:
+                # We'll always end up here when there was an audio strema. Ignore any further errors.
+                try:
+                    self.ffmpeg.terminate()
+                except Exception:
+                    pass
+            self.ffmpeg = None
+
+    def outputframe(self, frame, keyframe=True, timestamp=None):
+        if self.recording and self.ffmpeg:
+            # Handle the case where the FFmpeg prcoess has gone away for reasons of its own.
+            try:
+                self.ffmpeg.stdin.write(frame)
+                self.ffmpeg.stdin.flush()  # forces every frame to get timestamped individually
+            except Exception as e:  # presumably a BrokenPipeError? should we check explicitly?
+                self.ffmpeg = None
+                if self.error_callback:
+                    self.error_callback(e)
+            else:
+                self.outputtimestamp(timestamp)
+
 
 class StreamingOutput(Output):
     def __init__(self):
@@ -194,7 +284,7 @@ class centerHandler(tornado.web.RequestHandler):
     
 
     def get(self):
-        centerHtml = templatize(getFile('center.html'), {'ip':serverIp, 'port':serverPort, 'fps':framerate, 'record_filename':record_filename, 'color':centerColor, 'thickness':centerThickness})
+        centerHtml = templatize(getFile('center.html'), {'ip':serverIp, 'port':g_PORT, 'fps':framerate_js, 'record_filename':record_filename, 'color':centerColor, 'thickness':centerThickness})
         self.write(centerHtml)
 
 class gridHandler(tornado.web.RequestHandler):
@@ -243,7 +333,7 @@ class SSEHandler(tornado.web.RequestHandler):
 
 class RecordHandler(tornado.web.RequestHandler):
     def post(self):
-        global DO_RECORD, GLOBAL_POSITION_INT_msg, record_filename
+        global DO_RECORD, GLOBAL_POSITION_INT_msg, record_filename, g_REC_FRAMERATE, g_JPG_QUALITY
 
 
         is_recording = self.get_argument('isRecording') == 'true'
@@ -269,15 +359,41 @@ class RecordHandler(tornado.web.RequestHandler):
 
 
             DO_RECORD = True
-            self.q = queue.Queue()
+            self.cap_que = queue.Queue(maxsize=2)
+            self.jpg_que = queue.Queue(maxsize=2)
+
+  
             def capture_arr():
                 print('Starting capture Thread')
-                # Time delay for 3 frames per second
-                delay = 1 / 3
+
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                scale = 1
+                thickness = 2
+                colour = (0,255, 0)
+                # Time delay for g_FRAMERATE frames per second
+                delay = 1 / g_REC_FRAMERATE
+                frame_count = 0
                 while DO_RECORD:
                     start_time = time.time()
                     arr = picam2.capture_array()
-                    self.q.put(arr)
+                    text = f'#{frame_count}'
+                    frame_count += 1
+                    if GLOBAL_POSITION_INT_msg is not None:
+                        msg = GLOBAL_POSITION_INT_msg
+                        text += f', {msg.lat / 1.0e7}, {msg.lon/ 1.0e7}, {msg.alt / 1000.0}'
+
+                    (text_width, text_height) = cv2.getTextSize(text, font, scale, thickness)[0]
+                    # Draw a black rectangle under the text
+                    cv2.rectangle(arr, (0, 30 - text_height-5), (text_width, 40), (0, 0, 0), -1)
+                    cv2.putText(arr, str(text), (0, 30), font, scale, colour, thickness)
+
+                    start = time.time()
+                    buffer = simplejpeg.encode_jpeg(arr, quality=g_JPG_QUALITY, colorspace='RGB', colorsubsampling='420', fastdct=True)
+                    print(f"simple-jpeg encode time = {time.time() - start} {len(buffer) = }")
+
+                    if self.jpg_que.full():
+                        self.jpg_que.get() # If the queue is full, remove an item before adding a new one
+                    self.jpg_que.put(buffer)
     
                     elapsed_time = time.time() - start_time
                     if elapsed_time < delay:
@@ -311,30 +427,18 @@ class RecordHandler(tornado.web.RequestHandler):
                     # print(f'{GLOBAL_POSITION_INT_msg = }')
                     if RUN_CAMERA:
                         try:
-                            arr = self.q.get()
-                            # arr = picam2.capture_array()
-                            if GLOBAL_POSITION_INT_msg is not None:
-                                text = f'#{frame_count}, {lat}, {lon}, {altitude}'
-
-                                (text_width, text_height) = cv2.getTextSize(text, font, scale, thickness)[0]
-                                # Draw a black rectangle under the text
-                                cv2.rectangle(arr, (0, 30 - text_height-5), (text_width, 40), (0, 0, 0), -1)
-                                cv2.putText(arr, str(text), (0, 30), font, scale, colour, thickness)
-
-                            # is_success, buffer = cv2.imencode(".jpg", arr, [cv2.IMWRITE_JPEG_QUALITY, quality])
-                            buffer = simplejpeg.encode_jpeg(arr, quality=90, colorspace='RGB', colorsubsampling='420', fastdct=True)
-                            output.outputframe(buffer)
+                            jpg = self.jpg_que.get(timeout=0.1)
+                            output.outputframe(jpg)
                         except queue.Empty:
-                            time.sleep(1)
-                            # continue
+                            continue
+                        except Exception as e:
+                            print(f"Error in record thread {e}")
+
+
                     else:
                         time.sleep(1)
 
 
-
-                    # print(f'Total time taken cv jpg: {time.time()-start_time} seconds')
-                    # cv2.imwrite(f'output-q-{quality}.jpg', arr, [cv2.IMWRITE_JPEG_QUALITY, quality])
-                        # Increment the frame count
                     frame_count += 1
                     avg_fps = frame_count / (time.time() - start_time)
 
@@ -359,15 +463,17 @@ class RecordHandler(tornado.web.RequestHandler):
                 status = f'{gpx_status}, {vid_status}'
                 print(status)
                 StatusHandler.update_status(status)
+
             # Create and start a thread running the record function
             self.rec_thread = threading.Thread(target=record)
             self.rec_thread.daemon = True
-
-            self.cap_thread = threading.Thread(target=capture_arr)
-            # Set the thread as a daemon so it will end when the main program ends
-            self.cap_thread.daemon = True
-            self.cap_thread.start()
             self.rec_thread.start()
+            if RUN_CAMERA:
+                self.cap_thread = threading.Thread(target=capture_arr)
+                self.cap_thread.daemon = True
+                self.cap_thread.start()
+
+
 
 
 
@@ -419,25 +525,26 @@ class StatusHandler(tornado.web.RequestHandler):
     def update_status(cls, status):
         cls.status = status
 
-directory_to_serve = os.path.join(os.path.dirname(__file__), 'static')
-# directory_to_serve = os.path.dirname(__file__)
-directory_to_serve = '/static'
+# directory_to_serve = os.path.join(os.path.dirname(__file__), 'static')
+# # directory_to_serve = os.path.dirname(__file__)
+# directory_to_serve = '/static'
 
-requestHandlers = [
-    (r"/ws/", wsHandler),
-    (r"/", indexHandler),
-    (r"/center/", centerHandler),
-    (r"/grid/", gridHandler),
-    (r"/focus/", focusHandler),
-    (r"/jmuxer.min.js", jmuxerHandler),
-    (r"/sse/", SSEHandler),
-    (r"/record", RecordHandler), 
-    (r"/filename", FilenameHandler),
-    (r"/status/", StatusHandler),
+# requestHandlers = [
+#     (r"/ws/", wsHandler),
+#     (r"/", indexHandler),
+#     (r"/center/", centerHandler),
+#     (r"/grid/", gridHandler),
+#     (r"/focus/", focusHandler),
+#     (r"/jmuxer.min.js", jmuxerHandler),
+#     (r"/sse/", SSEHandler),
+#     (r"/record", RecordHandler), 
+#     (r"/filename", FilenameHandler),
+#     (r"/status/", StatusHandler),
 
-]
-
-StatusHandler.update_status('New status')
+# ]
+# resolution = [int(dim * g_RESOLUTION) for dim in picam2.sensor_resolution]
+# print(resolution)
+# StatusHandler.update_status(f'Resolution = {resolution}, record framerate = {g_REC_FRAMERATE}, JPG Quality = {g_JPG_QUALITY}')
 
 import time
 
@@ -519,15 +626,56 @@ def process_mavlink_data():
         except:
             print('Error while waiting for GPS_RAW_INT message')
 
+# Create a new thread and start it
+mavlink_thread = threading.Thread(target=process_mavlink_data, daemon=True)
+mavlink_thread.start()
 
 loop = None
 KEYBOARD = False
 def main():
-    global loop
-    # Create a new thread and start it
-    mavlink_thread = threading.Thread(target=process_mavlink_data, daemon=True)
-    mavlink_thread.start()
+    global loop, g_RESOLUTION, g_REC_FRAMERATE, g_JPG_QUALITY, g_PORT
+
+    parser = argparse.ArgumentParser(description='Run the Rpi camera app.')
+    parser.add_argument('--resolution', '-r', type=float, help='Resolution of the video', default=0.8)
+    parser.add_argument('--framerate_record', '-fr', type=int, help='Framerate of the record', default=3)
+    parser.add_argument('--framerate_camera', '-fc', type=int, help='Framerate of the camera', default=10)
+    parser.add_argument('--jpg_quality', '-q', type=int, help='Quality of the JPEG encoding', default=95)
+    parser.add_argument('--port', '-p', type=int, help='Quality of the JPEG encoding', default=8075)
+
+    args = parser.parse_args()
+
+    # Now you can access the values with args.resolution, args.framerate, and args.jpg_quality
+    print(args.resolution, args.framerate_record, args.framerate_camera, args.jpg_quality, args.port)
+    g_RESOLUTION, g_REC_FRAMERATE, g_CAM_FRAMERATE, g_JPG_QUALITY, g_PORT = args.resolution, args.framerate_record, args.framerate_camera,  args.jpg_quality, args.port
+
+    set_camera()
+
+
     
+    directory_to_serve = os.path.join(os.path.dirname(__file__), 'static')
+    # directory_to_serve = os.path.dirname(__file__)
+    directory_to_serve = '/static'
+
+    requestHandlers = [
+        (r"/ws/", wsHandler),
+        (r"/", indexHandler),
+        (r"/center/", centerHandler),
+        (r"/grid/", gridHandler),
+        (r"/focus/", focusHandler),
+        (r"/jmuxer.min.js", jmuxerHandler),
+        (r"/sse/", SSEHandler),
+        (r"/record", RecordHandler), 
+        (r"/filename", FilenameHandler),
+        (r"/status/", StatusHandler),
+
+    ]
+    resolution = [int(dim * g_RESOLUTION) for dim in picam2.sensor_resolution]
+    print(resolution)
+    StatusHandler.update_status(f'Resolution = {resolution}, record framerate = {g_REC_FRAMERATE}, JPG Quality = {g_JPG_QUALITY}')
+
+
+
+
     if KEYBOARD:
         # Save the current terminal settings
         old_settings = termios.tcgetattr(sys.stdin)
@@ -541,13 +689,13 @@ def main():
             output = StreamingOutput()
             # encoder = H264Encoder(repeat=True, framerate=framerate, qp=23)
             # encoder = H264Encoder(repeat=True, framerate=15, bitrate=2000000)
-            encoder = H264Encoder(repeat=True, framerate=framerate_encoder, qp=20)
+            encoder = H264Encoder(repeat=True, framerate=g_CAM_FRAMERATE, qp=20, iperiod=g_CAM_FRAMERATE)
             encoder.output = output
             picam2.start_recording(encoder, output)
 
         application = tornado.web.Application(requestHandlers)
         try:
-            application.listen(serverPort)
+            application.listen(g_PORT)
         except Exception as e:
             print(f"Error in application.listen(serverPort) {e}")
             print("is the application running already? , in a service?")

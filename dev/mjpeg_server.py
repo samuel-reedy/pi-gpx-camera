@@ -166,9 +166,9 @@ picam2 = Picamera2()
 full_resolution = picam2.sensor_resolution
 half_resolution = [dim // 2 for dim in picam2.sensor_resolution]
 
-picam2.configure(picam2.create_video_configuration(main={"size": half_resolution}))
+picam2.configure(picam2.create_video_configuration(main={"size": full_resolution}))
 picam2.controls.ExposureTime = 20000
-picam2.set_controls({"FrameRate": 10.0})
+picam2.set_controls({"FrameRate": 3.0})
 # # We should be able to set the lens position and see it reported back.
 # picam2.set_controls({'LensPosition': 1.5, 'FrameRate': 3})
 # time.sleep(0.5)

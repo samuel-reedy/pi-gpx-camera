@@ -11,7 +11,7 @@ from threading import Condition
 from picamera2 import Picamera2
 from picamera2.encoders import MJPEGEncoder
 from picamera2.outputs import FileOutput
-
+from picamera2.encoders import Quality, _hw_encoder_available
 PAGE = """\
 <html>
 <head>
@@ -82,7 +82,11 @@ class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
 
 
 picam2 = Picamera2()
-picam2.configure(picam2.create_video_configuration(main={"size": (640, 480)}))
+print (f"{_hw_encoder_available = }")
+
+full_resolution = picam2.sensor_resolution
+half_resolution = [dim // 2 for dim in picam2.sensor_resolution]
+picam2.configure(picam2.create_video_configuration(main={"size": half_resolution}))
 output = StreamingOutput()
 picam2.start_recording(MJPEGEncoder(), FileOutput(output))
 
