@@ -2,7 +2,7 @@
     Version:
 --------
 
-- gpx_cam v0.0.1
+
 """
 
 import os
