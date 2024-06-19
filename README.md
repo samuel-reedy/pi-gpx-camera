@@ -30,13 +30,27 @@ When server.py is running the feed can be vied from any broswer via the followin
     sudo apt-get install python3-picamera2
     ```
 
-5. Install the [Pi GPX Camera package](https://github.com/Revive-Our-Gulf/pi-gpx-camera) and create a venv with system-site-packages enabled
+5. Install the [Pi GPX Camera package](https://github.com/Revive-Our-Gulf/pi-gpx-camera) and create a venv. 
+    
     ``` sh
-    mkdir repos
+    mkdir ~/repos
     cd repos
     git clone https://github.com/Revive-Our-Gulf/pi-gpx-camera.git
     cd pi-gpx-camera
+    ```
+
+    If running with a camera then set up a venv with --system-site-packages
+
+    ``` sh
     python -m venv --system-site-packages 'venv'
+    source ./venv/bin/activate
+    pip install --upgrade pip
+    pip install -e '.[cam]'
+    ```
+
+    If you arent using the camera then don't set --system-site-packages 
+    ``` sh
+    python -m venv  'venv'
     source ./venv/bin/activate
     pip install --upgrade pip
     pip install -e .
@@ -45,7 +59,14 @@ When server.py is running the feed can be vied from any broswer via the followin
 # Mavlink
 Setup a MAV endpoint in Blueos as follows 
 ![BlueOS MAVLink Endpoint](readmeAssets/blueos-mavlink-endpoint.png)
-This allows the gpx info to be collected .  If this is running on another computer than BlueOS then the address will need to be the computers ip address, same port 14560.
+This allows the gpx info to be collected .  If this is running on another computer than BlueOS then the address will need to be the computers ip address, same port 14570.
+
+On the actual bluerov I had to set it to 
+```
+UDP Client
+192.168.2.2
+14570
+```
 
 # Usage
 

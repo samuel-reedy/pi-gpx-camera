@@ -11,21 +11,22 @@ import tornado.web, tornado.ioloop, tornado.websocket
 import tornado.gen
 from string import Template
 import io, os, socket
-# try:
-from picamera2 import Picamera2, MappedArray
-from picamera2.encoders import H264Encoder
-from picamera2.outputs import Output
+try:
+    assert False
+    from picamera2 import Picamera2, MappedArray
+    from picamera2.encoders import H264Encoder
+    from picamera2.outputs import Output
+    import prctl
+    import cv2
+    import simplejpeg  # simplejpeg is a simple package based on recent versions of libturbojpeg for fast JPEG encoding and decoding.
 # from picamera2.outputs import FfmpegOutput
 # from .ffmpegoutput import FfmpegOutput
-# except:
-#     print("Error in Picamera2, disabling the camera")
-#     RUN_CAMERA = False
+except:
+    print("Error in Picamera2, disabling the camera")
+
 
 from pymavlink import mavutil
 import time
-import cv2
-# import qoi
-import simplejpeg  # simplejpeg is a simple package based on recent versions of libturbojpeg for fast JPEG encoding and decoding.
 
 import gpxpy
 import gpxpy.gpx
@@ -37,14 +38,11 @@ import time
 
 import signal
 import subprocess
+import math
 
-import prctl
 import argparse
 
-# rgb = np.random.randint(low=0, high=255, size=(224, 244, 3)).astype(np.uint8)
 
-# Write it:
-# _ = qoi.write("img.qoi", rgb)
 
 # start configuration
 class Config:
@@ -147,87 +145,88 @@ focusHtml = templatize(getFile('focus.html'), {'ip':serverIp, 'port':Config.PORT
 jmuxerJs = getFile('jmuxer.min.js')
 
 
-class FfmpegOutput(Output):
-    """
-    The FfmpegOutput class allows an encoded video stream to be passed to FFmpeg for output.
-    """
+if Config.RUN_CAMERA:
 
-    def __init__(self, output_filename, audio=False, audio_device="default", audio_sync=-0.3,
-                 audio_samplerate=48000, audio_codec="aac", audio_bitrate=128000, pts=None):
-        super().__init__(pts=pts)
-        self.ffmpeg = None
-        self.output_filename = output_filename
-        self.timeout = 1 if audio else None
-        # A user can set this to get notifications of FFmpeg failures.
-        self.error_callback = None
-        # We don't understand timestamps, so an encoder may have to pace output to us.
-        self.needs_pacing = True
+    class FfmpegOutput(Output):
+        """
+        The FfmpegOutput class allows an encoded video stream to be passed to FFmpeg for output.
+        """
 
-    def start(self):
-        general_options = ['-loglevel', 'warning',
-                           '-y', '-f', 'mjpeg']  # -y means overwrite output without asking, -f mjpeg means force input to mjpeg
-        # We have to get FFmpeg to timestamp the video frames as it gets them. This isn't
-        # ideal because we're likely to pick up some jitter, but works passably, and I
-        # don't have a better alternative right now.
-        video_input = ['-use_wallclock_as_timestamps', '1',
-                       '-thread_queue_size', '64',  # necessary to prevent warnings
-                       '-i', '-']
-        video_codec = ['-c:v', 'copy']
-        command = ['ffmpeg'] + general_options + video_input + \
-             video_codec + self.output_filename.split()
-        # The preexec_fn is a slightly nasty way of ensuring FFmpeg gets stopped if we quit
-        # without calling stop() (which is otherwise not guaranteed).
-        self.ffmpeg = subprocess.Popen(command, stdin=subprocess.PIPE, preexec_fn=lambda: prctl.set_pdeathsig(signal.SIGKILL))
-        super().start()
-
-    def stop(self):
-        super().stop()
-        if self.ffmpeg is not None:
-            self.ffmpeg.stdin.close()  # FFmpeg needs this to shut down tidily
-            try:
-                # Give it a moment to flush out video frames, but after that make sure we terminate it.
-                self.ffmpeg.wait(timeout=self.timeout)
-            except subprocess.TimeoutExpired:
-                # We'll always end up here when there was an audio strema. Ignore any further errors.
-                try:
-                    self.ffmpeg.terminate()
-                except Exception:
-                    pass
+        def __init__(self, output_filename, audio=False, audio_device="default", audio_sync=-0.3,
+                    audio_samplerate=48000, audio_codec="aac", audio_bitrate=128000, pts=None):
+            super().__init__(pts=pts)
             self.ffmpeg = None
+            self.output_filename = output_filename
+            self.timeout = 1 if audio else None
+            # A user can set this to get notifications of FFmpeg failures.
+            self.error_callback = None
+            # We don't understand timestamps, so an encoder may have to pace output to us.
+            self.needs_pacing = True
 
-    def outputframe(self, frame, keyframe=True, timestamp=None):
-        if self.recording and self.ffmpeg:
-            # Handle the case where the FFmpeg prcoess has gone away for reasons of its own.
-            try:
-                self.ffmpeg.stdin.write(frame)
-                self.ffmpeg.stdin.flush()  # forces every frame to get timestamped individually
-            except Exception as e:  # presumably a BrokenPipeError? should we check explicitly?
+        def start(self):
+            general_options = ['-loglevel', 'warning',
+                            '-y', '-f', 'mjpeg']  # -y means overwrite output without asking, -f mjpeg means force input to mjpeg
+            # We have to get FFmpeg to timestamp the video frames as it gets them. This isn't
+            # ideal because we're likely to pick up some jitter, but works passably, and I
+            # don't have a better alternative right now.
+            video_input = ['-use_wallclock_as_timestamps', '1',
+                        '-thread_queue_size', '64',  # necessary to prevent warnings
+                        '-i', '-']
+            video_codec = ['-c:v', 'copy']
+            command = ['ffmpeg'] + general_options + video_input + \
+                video_codec + self.output_filename.split()
+            # The preexec_fn is a slightly nasty way of ensuring FFmpeg gets stopped if we quit
+            # without calling stop() (which is otherwise not guaranteed).
+            self.ffmpeg = subprocess.Popen(command, stdin=subprocess.PIPE, preexec_fn=lambda: prctl.set_pdeathsig(signal.SIGKILL))
+            super().start()
+
+        def stop(self):
+            super().stop()
+            if self.ffmpeg is not None:
+                self.ffmpeg.stdin.close()  # FFmpeg needs this to shut down tidily
+                try:
+                    # Give it a moment to flush out video frames, but after that make sure we terminate it.
+                    self.ffmpeg.wait(timeout=self.timeout)
+                except subprocess.TimeoutExpired:
+                    # We'll always end up here when there was an audio strema. Ignore any further errors.
+                    try:
+                        self.ffmpeg.terminate()
+                    except Exception:
+                        pass
                 self.ffmpeg = None
-                
-                if self.error_callback:
-                    self.error_callback(e)
+
+        def outputframe(self, frame, keyframe=True, timestamp=None):
+            if self.recording and self.ffmpeg:
+                # Handle the case where the FFmpeg prcoess has gone away for reasons of its own.
+                try:
+                    self.ffmpeg.stdin.write(frame)
+                    self.ffmpeg.stdin.flush()  # forces every frame to get timestamped individually
+                except Exception as e:  # presumably a BrokenPipeError? should we check explicitly?
+                    self.ffmpeg = None
+                    
+                    if self.error_callback:
+                        self.error_callback(e)
+                    else:
+                        print(f"Error in ffmpeg outputframe {e}")
                 else:
-                    print(f"Error in ffmpeg outputframe {e}")
-            else:
-                self.outputtimestamp(timestamp)
+                    self.outputtimestamp(timestamp)
 
 
-class StreamingOutput(Output):
-    def __init__(self):
-        # self.frameTypes = PiVideoFrameType()
-        self.loop = None
-        self.buffer = io.BytesIO()
+    class StreamingOutput(Output):
+        def __init__(self):
+            # self.frameTypes = PiVideoFrameType()
+            self.loop = None
+            self.buffer = io.BytesIO()
 
+        def setLoop(self, loop):
+            self.loop = loop
 
-    def setLoop(self, loop):
-        self.loop = loop
-
-    def outputframe(self, frame, keyframe=True, timestamp=None):
-        self.buffer.write(frame)
-        if self.loop is not None and wsHandler.hasConnections():
-            self.loop.add_callback(callback=wsHandler.broadcast, message=self.buffer.getvalue())
-        self.buffer.seek(0)
-        self.buffer.truncate()
+        def outputframe(self, frame, keyframe=True, timestamp=None):
+            self.buffer.write(frame)
+            if self.loop is not None and wsHandler.hasConnections():
+                self.loop.add_callback(callback=wsHandler.broadcast, message=self.buffer.getvalue())
+            self.buffer.seek(0)
+            self.buffer.truncate()
 
 class wsHandler(tornado.websocket.WebSocketHandler):
     connections = []
@@ -286,7 +285,7 @@ class jmuxerHandler(tornado.web.RequestHandler):
         self.set_header('Content-Type', 'text/javascript')
         self.write(jmuxerJs)
 
-import math
+
 def gps_to_meters_east_north(lat1, lon1, lat2, lon2):
     R = 6371e3  # Radius of the Earth in meters
     phi1 = math.radians(lat1)
@@ -628,7 +627,7 @@ def main():
     parser.add_argument('--framerate_camera', '-fc', type=int, help='Framerate of the camera', default=10)
     parser.add_argument('--jpg_quality', '-q', type=int, help='Quality of the JPEG encoding', default=95)
     parser.add_argument('--port', '-p', type=int, help='html port', default=8075)
-    parser.add_argument('--mavport', '-mp', type=int, help='mavlink port', default=14560)    
+    parser.add_argument('--mavport', '-mp', type=int, help='mavlink port', default=14570)    
 
     args = parser.parse_args()
     # clip the resolution to 0.2 and 1.0

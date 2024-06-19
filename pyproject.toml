@@ -20,12 +20,14 @@ dependencies = [
     "requests",
     "gpxpy",
     "pymavlink",
-    "opencv-python-headless",
+    # "opencv-python-headless",
+    # "simplejpeg",
     ]
 
 requires-python = ">=3.8"
 
 [project.optional-dependencies]
+cam = ["opencv-python-headless", "simplejpeg"]
 build = ["build", "twine"]
 dev   = ["black", "bumpver", "isort", "mypy", "pip-tools", "pytest"]
 
