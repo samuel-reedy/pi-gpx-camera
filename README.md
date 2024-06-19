@@ -47,6 +47,27 @@ Setup a MAV endpoint in Blueos as follows
 ![BlueOS MAVLink Endpoint](readmeAssets/blueos-mavlink-endpoint.png)
 This allows the gpx info to be collected .  If this is running on another computer than BlueOS then the address will need to be the computers ip address, same port 14560.
 
+# Usage
+
+``` sh
+~/repos/pi-gpx-camera/venv/bin/gpxcam -h
+usage: gpxcam [-h] [--resolution RESOLUTION] [--framerate_record FRAMERATE_RECORD] [--framerate_camera FRAMERATE_CAMERA] [--jpg_quality JPG_QUALITY] [--port PORT]
+
+Run the Rpi camera app.
+
+options:
+  -h, --help            show this help message and exit
+  --resolution RESOLUTION, -r RESOLUTION
+                        Resolution of the video
+  --framerate_record FRAMERATE_RECORD, -fr FRAMERATE_RECORD
+                        Framerate of the record
+  --framerate_camera FRAMERATE_CAMERA, -fc FRAMERATE_CAMERA
+                        Framerate of the camera
+  --jpg_quality JPG_QUALITY, -q JPG_QUALITY
+                        Quality of the JPEG encoding
+  --port PORT, -p PORT  Quality of the JPEG encoding
+```
+
 # To Run
 
 Normally this will automatically start on boot as a service, see services below

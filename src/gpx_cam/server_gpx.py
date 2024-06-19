@@ -47,28 +47,34 @@ import argparse
 # _ = qoi.write("img.qoi", rgb)
 
 # start configuration
+class Config:
+    wsURL = "ws://my_ip/ws/"
+    CAM_TYPE = "hq-6mm-CS-pi"
+    RUN_CAMERA = False
+    DO_RECORD = False
+    rec_start_position = None
+    record_filename = "transect-001"
+    RESOLUTION = 0.8
+    REC_FRAMERATE = 2
+    CAM_FRAMERATE = 10
+    JPG_QUALITY = 95
+    PORT = 8075
+    mav_msg_GLOBAL_POSITION_INT = None 
+    # resolution = [0, 0]
+    framerate_js = CAM_FRAMERATE
 
-wsURL = "ws://my_ip/ws/"
-
-CAM_TYPE = "hq-6mm-CS-pi"
-DO_RECORD = False
-record_filename = "transect-001"
-g_RESOLUTION, g_REC_FRAMERATE, g_CAM_FRAMERATE, g_JPG_QUALITY, g_PORT = 0.8, 2, 10, 95, 8075
-GLOBAL_POSITION_INT_msg = None
-resolution = [0, 0]
-framerate_js = g_CAM_FRAMERATE
 try:
-    # assert False
+    assert False
     picam2 = Picamera2()
-    RUN_CAMERA = True
+    Config.RUN_CAMERA = True
 except:
     print("Error in Picamera2, disabling the camera")
-    RUN_CAMERA = False
+    Config.RUN_CAMERA = False
 
 def set_camera():
-    if RUN_CAMERA:
+    if Config.RUN_CAMERA:
 
-        resolution = [int(dim * g_RESOLUTION) for dim in picam2.sensor_resolution]
+        resolution = [int(dim * Config.RESOLUTION) for dim in picam2.sensor_resolution]
         main_stream = {'format': 'BGR888', 'size': resolution}
         # lores_stream = {"size": (640, 480)}
         # lores_stream = {"size": (1280, 960)}
@@ -81,7 +87,7 @@ def set_camera():
         picam2.configure(video_config)
         picam2.start()
         # picam2.controls.ExposureTime = 20000
-        picam2.set_controls({"ExposureTime": 20000, "FrameRate": g_CAM_FRAMERATE})
+        picam2.set_controls({"ExposureTime": 20000, "FrameRate": Config.CAM_FRAMERATE})
 
         colour = (0,255, 0)
         origin = (0, 30)
@@ -93,14 +99,13 @@ def set_camera():
         PRE_CALLBACK = False
         if PRE_CALLBACK:
             def apply_timestamp(request):
-                global GLOBAL_POSITION_INT_msg
-                # timestamp = time.strftime("%Y-%m-%d %X")
+
                 with MappedArray(request, "main") as m:
                     # Calculate the width and height of the text box
-                    (text_width, text_height) = cv2.getTextSize(str(GLOBAL_POSITION_INT_msg), font, scale, thickness)[0]
+                    (text_width, text_height) = cv2.getTextSize(str(Config.mav_msg_GLOBAL_POSITION_INT), font, scale, thickness)[0]
                     # Draw a black rectangle under the text
                     cv2.rectangle(m.array, (0, 30 - text_height-5), (text_width, 40), (0, 0, 0), -1)
-                    cv2.putText(m.array, str(GLOBAL_POSITION_INT_msg), (0, 30), font, scale, colour, thickness)
+                    cv2.putText(m.array, str(Config.mav_msg_GLOBAL_POSITION_INT), (0, 30), font, scale, colour, thickness)
                     # cv2.putText(m.array, 'RECORDING', (1700, 1050), font, scale, (255, 0, 0), 3)
 
 
@@ -135,19 +140,16 @@ def templatize(content, replacements):
     tmpl = Template(content)
     return tmpl.substitute(replacements)
 
-indexHtml = templatize(getFile('index.html'), {'ip':serverIp, 'port':g_PORT, 'fps':framerate_js})
+indexHtml = templatize(getFile('index.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js})
 
-gridHtml = templatize(getFile('grid.html'), {'ip':serverIp, 'port':g_PORT, 'fps':framerate_js,'color':gridColor, 'thickness':gridThickness})
-focusHtml = templatize(getFile('focus.html'), {'ip':serverIp, 'port':g_PORT, 'fps':framerate_js, 'color':focusPeakingColor, 'threshold':focusPeakingthreshold})
+gridHtml = templatize(getFile('grid.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js,'color':gridColor, 'thickness':gridThickness})
+focusHtml = templatize(getFile('focus.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js, 'color':focusPeakingColor, 'threshold':focusPeakingthreshold})
 jmuxerJs = getFile('jmuxer.min.js')
 
 
 class FfmpegOutput(Output):
     """
     The FfmpegOutput class allows an encoded video stream to be passed to FFmpeg for output.
-
-    This means we can take advantange of FFmpeg's wide support for different output formats.
-
     """
 
     def __init__(self, output_filename, audio=False, audio_device="default", audio_sync=-0.3,
@@ -155,14 +157,6 @@ class FfmpegOutput(Output):
         super().__init__(pts=pts)
         self.ffmpeg = None
         self.output_filename = output_filename
-        # self.audio = audio
-        # self.audio_device = audio_device
-        # self.audio_sync = audio_sync
-        # self.audio_samplerate = audio_samplerate
-        # self.audio_codec = audio_codec
-        # self.audio_bitrate = audio_bitrate
-        # If we run an audio stream, FFmpeg won't stop so we'll give the video stream a
-        # moment or two to flush stuff out, and then we'll have to terminate the process.
         self.timeout = 1 if audio else None
         # A user can set this to get notifications of FFmpeg failures.
         self.error_callback = None
@@ -171,7 +165,7 @@ class FfmpegOutput(Output):
 
     def start(self):
         general_options = ['-loglevel', 'warning',
-                           '-y', '-f', 'mjpeg']  # -y means overwrite output without asking
+                           '-y', '-f', 'mjpeg']  # -y means overwrite output without asking, -f mjpeg means force input to mjpeg
         # We have to get FFmpeg to timestamp the video frames as it gets them. This isn't
         # ideal because we're likely to pick up some jitter, but works passably, and I
         # don't have a better alternative right now.
@@ -179,17 +173,6 @@ class FfmpegOutput(Output):
                        '-thread_queue_size', '64',  # necessary to prevent warnings
                        '-i', '-']
         video_codec = ['-c:v', 'copy']
-        # audio_input = []
-        # audio_codec = []
-        # if self.audio:
-        #     audio_input = ['-itsoffset', str(self.audio_sync),
-        #                    '-f', 'pulse',
-        #                    '-sample_rate', str(self.audio_samplerate),
-        #                    '-thread_queue_size', '1024',  # necessary to prevent warnings
-        #                    '-i', self.audio_device]
-        #     audio_codec = ['-b:a', str(self.audio_bitrate),
-        #                    '-c:a', self.audio_codec]
-
         command = ['ffmpeg'] + general_options + video_input + \
              video_codec + self.output_filename.split()
         # The preexec_fn is a slightly nasty way of ensuring FFmpeg gets stopped if we quit
@@ -220,8 +203,11 @@ class FfmpegOutput(Output):
                 self.ffmpeg.stdin.flush()  # forces every frame to get timestamped individually
             except Exception as e:  # presumably a BrokenPipeError? should we check explicitly?
                 self.ffmpeg = None
+                
                 if self.error_callback:
                     self.error_callback(e)
+                else:
+                    print(f"Error in ffmpeg outputframe {e}")
             else:
                 self.outputtimestamp(timestamp)
 
@@ -284,7 +270,7 @@ class centerHandler(tornado.web.RequestHandler):
     
 
     def get(self):
-        centerHtml = templatize(getFile('center.html'), {'ip':serverIp, 'port':g_PORT, 'fps':framerate_js, 'record_filename':record_filename, 'color':centerColor, 'thickness':centerThickness})
+        centerHtml = templatize(getFile('center.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js, 'record_filename':Config.record_filename, 'color':centerColor, 'thickness':centerThickness})
         self.write(centerHtml)
 
 class gridHandler(tornado.web.RequestHandler):
@@ -300,6 +286,21 @@ class jmuxerHandler(tornado.web.RequestHandler):
         self.set_header('Content-Type', 'text/javascript')
         self.write(jmuxerJs)
 
+import math
+def gps_to_meters_east_north(lat1, lon1, lat2, lon2):
+    R = 6371e3  # Radius of the Earth in meters
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    lambda1 = math.radians(lon1)
+    lambda2 = math.radians(lon2)
+
+    delta_phi = phi2 - phi1
+    delta_lambda = lambda2 - lambda1
+
+    x = delta_lambda * math.cos((phi1 + phi2) / 2)  # East-west distance
+    y = delta_phi  # North-south distance
+
+    return R * x, R * y
 
 class SSEHandler(tornado.web.RequestHandler):
     def initialize(self):
@@ -310,20 +311,32 @@ class SSEHandler(tornado.web.RequestHandler):
         self.count = 0
 
     async def get(self):
-        global GLOBAL_POSITION_INT_msg
         while True:
             if self.request.connection.stream.closed():
                 print("Stream is closed")
                 # break out of generator loop
                 break
             try:
-                if GLOBAL_POSITION_INT_msg is not None:
-                    msg = GLOBAL_POSITION_INT_msg
-                    altitude = msg.alt / 1000.0
-                    lat = msg.lat/ 1.0e7
-                    lon = msg.lon/ 1.0e7
+                if Config.mav_msg_GLOBAL_POSITION_INT is not None:
+                    msg = Config.mav_msg_GLOBAL_POSITION_INT
 
-                    self.write(f"data: {lat = }  {lon = }  {altitude = } \n\n")
+                    if Config.rec_start_position is not None:
+                        # # log distance in m
+                        # start_lat, start_lon, start_alt = Config.rec_start_position
+                        # distance = gpxpy.geo.haversine_distance(start_lat, start_lon, msg.lat/1.0e7, msg.lon/1.0e7)
+                        # print(f"{start_lat = }, {msg.lat = },  {start_lon = }, {msg.lon = }, Distance = {distance:.1f}")
+                        # self.write(f"data: Distance = {distance:.1f} \n\n")
+                        # log distance in m
+                        start_lat, start_lon, start_alt = Config.rec_start_position
+                        east, north = gps_to_meters_east_north(start_lat, start_lon, msg.lat/1.0e7, msg.lon/1.0e7)
+                        print(f"{start_lat = }, {msg.lat = },  {start_lon = }, {msg.lon = }, {east:.1f}, {north:.1f}")
+                        self.write(f"data: East = {east:.1f}, North = {north:.1f} \n\n")                        
+                    else:
+                        altitude = msg.alt / 1000.0
+                        lat = msg.lat/ 1.0e7
+                        lon = msg.lon/ 1.0e7
+                        self.write(f"data: {lat = }  {lon = }  {altitude = } \n\n")
+
                     self.count += 1
                     await self.flush()
             except Exception as e:
@@ -333,8 +346,6 @@ class SSEHandler(tornado.web.RequestHandler):
 
 class RecordHandler(tornado.web.RequestHandler):
     def post(self):
-        global DO_RECORD, GLOBAL_POSITION_INT_msg, record_filename, g_REC_FRAMERATE, g_JPG_QUALITY
-
 
         is_recording = self.get_argument('isRecording') == 'true'
         if is_recording:
@@ -343,9 +354,9 @@ class RecordHandler(tornado.web.RequestHandler):
             if not os.path.exists("../../data"):
                 os.makedirs("../../data")
             
-            fn_gpx = f"../../data/{record_filename}.gpx" if GLOBAL_POSITION_INT_msg else 'No position MAV messages found'
-            fn_vid = f'../../data/{record_filename}.avi' if RUN_CAMERA else 'No Camera Found'
-            if GLOBAL_POSITION_INT_msg is not None:
+            fn_gpx = f"../../data/{Config.record_filename}.gpx" if Config.mav_msg_GLOBAL_POSITION_INT else 'No position MAV messages found'
+            fn_vid = f'../../data/{Config.record_filename}.avi' if Config.RUN_CAMERA else 'No Camera Found'
+            if Config.mav_msg_GLOBAL_POSITION_INT is not None:
                 gpx = gpxpy.gpx.GPX()
 
                 # Create a new track in our GPX file
@@ -356,9 +367,14 @@ class RecordHandler(tornado.web.RequestHandler):
                 gpx_segment = gpxpy.gpx.GPXTrackSegment()
                 gpx_track.segments.append(gpx_segment)
 
+                msg = Config.mav_msg_GLOBAL_POSITION_INT
+                Config.rec_start_position = (msg.lat/1.0e7, msg.lon/1.0e7, msg.alt/1000.0)
+
+            print(f"Recording started to {fn_gpx} & {fn_vid}")
 
 
-            DO_RECORD = True
+
+            Config.DO_RECORD = True
             self.cap_que = queue.Queue(maxsize=2)
             self.jpg_que = queue.Queue(maxsize=2)
 
@@ -371,15 +387,15 @@ class RecordHandler(tornado.web.RequestHandler):
                 thickness = 2
                 colour = (0,255, 0)
                 # Time delay for g_FRAMERATE frames per second
-                delay = 1 / g_REC_FRAMERATE
+                delay = 1 / Config.REC_FRAMERATE
                 frame_count = 0
-                while DO_RECORD:
+                while Config.DO_RECORD:
                     start_time = time.time()
                     arr = picam2.capture_array()
                     text = f'#{frame_count}'
                     frame_count += 1
-                    if GLOBAL_POSITION_INT_msg is not None:
-                        msg = GLOBAL_POSITION_INT_msg
+                    if Config.mav_msg_GLOBAL_POSITION_INT is not None:
+                        msg = Config.mav_msg_GLOBAL_POSITION_INT
                         text += f', {msg.lat / 1.0e7}, {msg.lon/ 1.0e7}, {msg.alt / 1000.0}'
 
                     (text_width, text_height) = cv2.getTextSize(text, font, scale, thickness)[0]
@@ -388,7 +404,7 @@ class RecordHandler(tornado.web.RequestHandler):
                     cv2.putText(arr, str(text), (0, 30), font, scale, colour, thickness)
 
                     start = time.time()
-                    buffer = simplejpeg.encode_jpeg(arr, quality=g_JPG_QUALITY, colorspace='RGB', colorsubsampling='420', fastdct=True)
+                    buffer = simplejpeg.encode_jpeg(arr, quality=Config.JPG_QUALITY, colorspace='RGB', colorsubsampling='420', fastdct=True)
                     print(f"simple-jpeg encode time = {time.time() - start} {len(buffer) = }")
 
                     if self.jpg_que.full():
@@ -402,30 +418,29 @@ class RecordHandler(tornado.web.RequestHandler):
 
             # Define your recording logic in a function
             def record():
-                global record_filename
+
                 print('Starting record Thread')
                 status = f'Recording to {fn_gpx} & {fn_vid}'
                 print(status)
                 StatusHandler.update_status(status)
                 quality = 90
-                if RUN_CAMERA:
+                if Config.RUN_CAMERA:
                     output = FfmpegOutput(fn_vid,)
                     output.start()
                 fps = 0
                 frame_count = 0
                 start_time = time.time()
                 last_time = start_time
-                while DO_RECORD:
-                    if GLOBAL_POSITION_INT_msg is not None:
-                        msg = GLOBAL_POSITION_INT_msg
+                while Config.DO_RECORD:
+                    if Config.mav_msg_GLOBAL_POSITION_INT is not None:
+                        msg = Config.mav_msg_GLOBAL_POSITION_INT
                         altitude = msg.alt / 1000.0
                         lat = msg.lat / 1.0e7
                         lon = msg.lon/ 1.0e7
                         gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), speed=0.0,symbol='Waypoint'))
                         # todo add photo frame number
 
-                    # print(f'{GLOBAL_POSITION_INT_msg = }')
-                    if RUN_CAMERA:
+                    if Config.RUN_CAMERA:
                         try:
                             jpg = self.jpg_que.get(timeout=0.1)
                             output.outputframe(jpg)
@@ -444,7 +459,7 @@ class RecordHandler(tornado.web.RequestHandler):
 
                     # on every second
                     if time.time() - last_time > 1: 
-                        status = f'video fps = {avg_fps:.2f}  {frame_count = }'
+                        status = f'Video fps = {avg_fps:.2f}  {frame_count = }'
                         print(status)
                         StatusHandler.update_status(status)
                         last_time = time.time()
@@ -452,15 +467,15 @@ class RecordHandler(tornado.web.RequestHandler):
                 # save video and gpx
                 vid_status = fn_vid
                 gpx_status = fn_gpx
-                if RUN_CAMERA:
+                if Config.RUN_CAMERA:
                     output.stop()
-                    vid_status = f'video saved to {fn_vid}'
-                if GLOBAL_POSITION_INT_msg is not None:
+                    vid_status = f'Video saved to {fn_vid}'
+                if Config.mav_msg_GLOBAL_POSITION_INT is not None:
                     with open(fn_gpx, 'w') as f:
                         f.write(gpx.to_xml())
-                        gpx_status += f'gpx saved to {fn_gpx}'
+                        gpx_status = f'GPX saved to {fn_gpx}'
 
-                status = f'{gpx_status}, {vid_status}'
+                status = f'{gpx_status}:     {vid_status}'
                 print(status)
                 StatusHandler.update_status(status)
 
@@ -468,7 +483,7 @@ class RecordHandler(tornado.web.RequestHandler):
             self.rec_thread = threading.Thread(target=record)
             self.rec_thread.daemon = True
             self.rec_thread.start()
-            if RUN_CAMERA:
+            if Config.RUN_CAMERA:
                 self.cap_thread = threading.Thread(target=capture_arr)
                 self.cap_thread.daemon = True
                 self.cap_thread.start()
@@ -479,16 +494,16 @@ class RecordHandler(tornado.web.RequestHandler):
 
         else:
             print("Recording stopped")
-            DO_RECORD = False
+            Config.DO_RECORD = False
+            Config.rec_start_position = None
             # self.thread.join()
 
 
 
 class FilenameHandler(tornado.web.RequestHandler):
     def post(self):
-        global record_filename
-        record_filename = self.get_argument('videoFile')
-        print(f"Record filename: {record_filename }")
+        Config.record_filename = self.get_argument('videoFile')
+        print(f"Record filename: {Config.record_filename }")
 
 
 class StatusHandler(tornado.web.RequestHandler):
@@ -525,31 +540,7 @@ class StatusHandler(tornado.web.RequestHandler):
     def update_status(cls, status):
         cls.status = status
 
-# directory_to_serve = os.path.join(os.path.dirname(__file__), 'static')
-# # directory_to_serve = os.path.dirname(__file__)
-# directory_to_serve = '/static'
-
-# requestHandlers = [
-#     (r"/ws/", wsHandler),
-#     (r"/", indexHandler),
-#     (r"/center/", centerHandler),
-#     (r"/grid/", gridHandler),
-#     (r"/focus/", focusHandler),
-#     (r"/jmuxer.min.js", jmuxerHandler),
-#     (r"/sse/", SSEHandler),
-#     (r"/record", RecordHandler), 
-#     (r"/filename", FilenameHandler),
-#     (r"/status/", StatusHandler),
-
-# ]
-# resolution = [int(dim * g_RESOLUTION) for dim in picam2.sensor_resolution]
-# print(resolution)
-# StatusHandler.update_status(f'Resolution = {resolution}, record framerate = {g_REC_FRAMERATE}, JPG Quality = {g_JPG_QUALITY}')
-
 import time
-
-
-# import threading
 from pymavlink import mavutil
 import sys 
 import tty
@@ -564,7 +555,7 @@ file_cnt = 0
 FOCUS_INC = 0.5
 
 def keyboard_handler(fd, events):
-    global LensPosition, file_cnt
+
     # # This function will be called whenever there is input on stdin
     # message = sys.stdin.readline()
     # print(f"You typed: {message}")
@@ -598,9 +589,9 @@ def keyboard_handler(fd, events):
 
 
 def process_mavlink_data():
-    global GLOBAL_POSITION_INT_msg
+
     # Start a connection listening to a UDP port
-    the_connection = mavutil.mavlink_connection('udpin:0.0.0.0:14560')
+    the_connection = mavutil.mavlink_connection(f'udpin:0.0.0.0:{Config.MAVPORT}')
     # the_connection = mavutil.mavlink_connection('udpin:0.0.0.0:14445')
     # Wait for the first heartbeat 
     # This sets the system and component ID of remote system for the link
@@ -617,7 +608,7 @@ def process_mavlink_data():
             # Wait for a GPS_RAW_INT message with a timeout of 10 seconds
             msg = the_connection.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=10)
 
-            GLOBAL_POSITION_INT_msg = msg
+            Config.mav_msg_GLOBAL_POSITION_INT = msg
 
             if msg is not None:
                 pass
@@ -626,35 +617,43 @@ def process_mavlink_data():
         except:
             print('Error while waiting for GPS_RAW_INT message')
 
-# Create a new thread and start it
-mavlink_thread = threading.Thread(target=process_mavlink_data, daemon=True)
-mavlink_thread.start()
 
 loop = None
 KEYBOARD = False
 def main():
-    global loop, g_RESOLUTION, g_REC_FRAMERATE, g_JPG_QUALITY, g_PORT
 
     parser = argparse.ArgumentParser(description='Run the Rpi camera app.')
-    parser.add_argument('--resolution', '-r', type=float, help='Resolution of the video', default=0.8)
+    parser.add_argument('--resolution', '-r', type=float, help='Resolution of the video: >0.2 <1.0', default=0.8)
     parser.add_argument('--framerate_record', '-fr', type=int, help='Framerate of the record', default=3)
     parser.add_argument('--framerate_camera', '-fc', type=int, help='Framerate of the camera', default=10)
     parser.add_argument('--jpg_quality', '-q', type=int, help='Quality of the JPEG encoding', default=95)
-    parser.add_argument('--port', '-p', type=int, help='Quality of the JPEG encoding', default=8075)
+    parser.add_argument('--port', '-p', type=int, help='html port', default=8075)
+    parser.add_argument('--mavport', '-mp', type=int, help='mavlink port', default=14560)    
 
     args = parser.parse_args()
+    # clip the resolution to 0.2 and 1.0
+    args.resolution = max(0.2, min(args.resolution, 1.0))
+    args.framerate_record = max(1, min(args.framerate_record, 5))
+    args.framerate_camera = max(1, min(args.framerate_camera, 30))
+    args.jpg_quality = max(50, min(args.jpg_quality, 100))
+
+
 
     # Now you can access the values with args.resolution, args.framerate, and args.jpg_quality
-    print(args.resolution, args.framerate_record, args.framerate_camera, args.jpg_quality, args.port)
-    g_RESOLUTION, g_REC_FRAMERATE, g_CAM_FRAMERATE, g_JPG_QUALITY, g_PORT = args.resolution, args.framerate_record, args.framerate_camera,  args.jpg_quality, args.port
+    print(args.resolution, args.framerate_record, args.framerate_camera, args.jpg_quality, args.port, args.mavport)
+    Config.RESOLUTION, Config.REC_FRAMERATE, Config.CAM_FRAMERATE, Config.JPG_QUALITY, Config.PORT, Config.MAVPORT  \
+        = args.resolution, args.framerate_record, args.framerate_camera,  args.jpg_quality, args.port, args.mavport
 
     set_camera()
 
+    # Create a new thread and start it
+    mavlink_thread = threading.Thread(target=process_mavlink_data, daemon=True)
+    mavlink_thread.start()
 
     
-    directory_to_serve = os.path.join(os.path.dirname(__file__), 'static')
-    # directory_to_serve = os.path.dirname(__file__)
-    directory_to_serve = '/static'
+    # directory_to_serve = os.path.join(os.path.dirname(__file__), 'static')
+    # # directory_to_serve = os.path.dirname(__file__)
+    # directory_to_serve = '/static'
 
     requestHandlers = [
         (r"/ws/", wsHandler),
@@ -669,9 +668,9 @@ def main():
         (r"/status/", StatusHandler),
 
     ]
-    resolution = [int(dim * g_RESOLUTION) for dim in picam2.sensor_resolution]
+    resolution = [int(dim * Config.RESOLUTION) for dim in picam2.sensor_resolution] if Config.RUN_CAMERA else [0, 0]
     print(resolution)
-    StatusHandler.update_status(f'Resolution = {resolution}, record framerate = {g_REC_FRAMERATE}, JPG Quality = {g_JPG_QUALITY}')
+    StatusHandler.update_status(f'Resolution = {resolution}, record framerate = {Config.REC_FRAMERATE}, JPG Quality = {Config.JPG_QUALITY}')
 
 
 
@@ -685,17 +684,17 @@ def main():
             # Set the terminal to unbuffered mode
             tty.setcbreak(sys.stdin.fileno())
 
-        if RUN_CAMERA:
+        if Config.RUN_CAMERA:
             output = StreamingOutput()
             # encoder = H264Encoder(repeat=True, framerate=framerate, qp=23)
             # encoder = H264Encoder(repeat=True, framerate=15, bitrate=2000000)
-            encoder = H264Encoder(repeat=True, framerate=g_CAM_FRAMERATE, qp=20, iperiod=g_CAM_FRAMERATE)
+            encoder = H264Encoder(repeat=True, framerate=Config.CAM_FRAMERATE, qp=20, iperiod=Config.CAM_FRAMERATE)
             encoder.output = output
             picam2.start_recording(encoder, output)
 
         application = tornado.web.Application(requestHandlers)
         try:
-            application.listen(g_PORT)
+            application.listen(Config.PORT)
         except Exception as e:
             print(f"Error in application.listen(serverPort) {e}")
             print("is the application running already? , in a service?")
@@ -703,7 +702,7 @@ def main():
             
         loop = tornado.ioloop.IOLoop.current()
 
-        if RUN_CAMERA:
+        if Config.RUN_CAMERA:
             output.setLoop(loop)
         if KEYBOARD:
             # Add the keyboard handler to the IOLoop
@@ -711,7 +710,7 @@ def main():
 
         loop.start()
     except KeyboardInterrupt:
-        if RUN_CAMERA:
+        if Config.RUN_CAMERA:
             picam2.stop_recording()
 
         loop.stop()
