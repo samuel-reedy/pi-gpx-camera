@@ -5,13 +5,14 @@
 
 """
 
+import logging
 import os
 
 import tornado.web, tornado.ioloop, tornado.websocket  
 import tornado.gen
 from string import Template
 import io, os
-import netifaces as ni
+import socket
 try:
     # assert False
     from picamera2 import Picamera2, MappedArray
@@ -23,7 +24,7 @@ try:
 # from picamera2.outputs import FfmpegOutput
 # from .ffmpegoutput import FfmpegOutput
 except:
-    print("Error in Picamera2, disabling the camera")
+    logging.error("Error in Picamera2, disabling the camera")
 
 
 from pymavlink import mavutil
@@ -43,6 +44,8 @@ import math
 
 import argparse
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 # start configuration
@@ -67,7 +70,7 @@ try:
     picam2 = Picamera2()
     Config.RUN_CAMERA = True
 except:
-    print("Error in Picamera2, disabling the camera")
+    logging.error("Error in Picamera2, disabling the camera")
     Config.RUN_CAMERA = False
 
 def set_camera():
@@ -79,8 +82,8 @@ def set_camera():
         # lores_stream = {"size": (1280, 960)}
         lores_stream = {"size": (1920, 1080)}
 
-        print(f"{main_stream = }")
-        print(f"{lores_stream = }")
+        logging.info(f"{main_stream = }")
+        logging.info(f"{lores_stream = }")
 
         video_config = picam2.create_video_configuration(main_stream, lores_stream, encode="lores", buffer_count=3)
         picam2.configure(video_config)
@@ -112,6 +115,8 @@ def set_camera():
             picam2.pre_callback = apply_timestamp
 
 
+
+
 focusPeakingColor = '1.0, 0.0, 0.0, 1.0'
 focusPeakingthreshold = 0.055
 
@@ -120,11 +125,7 @@ centerThickness = 2
 
 gridColor = '255, 0, 0, 1.0'
 gridThickness = 2
-# end configuration
 
-# s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-# s.connect(('8.8.8.8', 0))  
-# serverIp = s.getsockname()[0]
 
 
 
@@ -136,21 +137,6 @@ def get_interface_ip(interface_name):
     except (KeyError, ValueError, IndexError):
         return None
 
-# Try to get the Ethernet IP first
-serverIp = get_interface_ip('eth0')
-
-# If Ethernet IP is not found, try to get the WiFi IP
-if serverIp is None:
-    serverIp = get_interface_ip('wlan0')
-    if serverIp:
-        print(f"Using WiFi IP: {serverIp}")
-    else:
-        print("No IP found for Ethernet or WiFi.")
-else:
-    print(f"Using Ethernet IP: {serverIp}")
-
-# # Optionally, print all interfaces for debugging
-# print(ni.interfaces())
 
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
@@ -166,11 +152,11 @@ def templatize(content, replacements):
     tmpl = Template(content)
     return tmpl.substitute(replacements)
 
-indexHtml = templatize(getFile('index.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js})
+# indexHtml = templatize(getFile('index.html'), {'ip':Config.serverIp, 'port':Config.PORT, 'fps':Config.framerate_js})
 
-gridHtml = templatize(getFile('grid.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js,'color':gridColor, 'thickness':gridThickness})
-# focusHtml = templatize(getFile('focus.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js, 'color':focusPeakingColor, 'threshold':focusPeakingthreshold})
-jmuxerJs = getFile('jmuxer.min.js')
+# gridHtml = templatize(getFile('grid.html'), {'ip':Config.serverIp, 'port':Config.PORT, 'fps':Config.framerate_js,'color':gridColor, 'thickness':gridThickness})
+# # focusHtml = templatize(getFile('focus.html'), {'ip':Config.serverIp, 'port':Config.PORT, 'fps':Config.framerate_js, 'color':focusPeakingColor, 'threshold':focusPeakingthreshold})
+# jmuxerJs = getFile('jmuxer.min.js')
 
 
 if Config.RUN_CAMERA:
@@ -235,7 +221,7 @@ if Config.RUN_CAMERA:
                     if self.error_callback:
                         self.error_callback(e)
                     else:
-                        print(f"Error in ffmpeg outputframe {e}")
+                        logging.warning(f"Error in ffmpeg outputframe {e}")
                 else:
                     self.outputtimestamp(timestamp)
 
@@ -291,26 +277,37 @@ class wsHandler(tornado.websocket.WebSocketHandler):
 
 class indexHandler(tornado.web.RequestHandler):
     def get(self):
+        server_host = self.request.host.split(':')[0]  # Split to remove port if present
+        serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
+        indexHtml = templatize(getFile('index.html'), {'ip':Config.serverIp, 'port':Config.PORT, 'fps':Config.framerate_js})
         self.write(indexHtml)
 
-class centerHandler(tornado.web.RequestHandler):
-    
 
+class centerHandler(tornado.web.RequestHandler):
     def get(self):
+        server_host = self.request.host.split(':')[0]  # Split to remove port if present
+        serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
         centerHtml = templatize(getFile('center.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js, 'record_filename':Config.record_filename, 'color':centerColor, 'thickness':centerThickness})
         self.write(centerHtml)
 
+
 class gridHandler(tornado.web.RequestHandler):
     def get(self):
+        server_host = self.request.host.split(':')[0]  # Split to remove port if present
+        serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
+        gridHtml = templatize(getFile('grid.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js,'color':gridColor, 'thickness':gridThickness})
         self.write(gridHtml)
 
 class focusHandler(tornado.web.RequestHandler):
     def get(self):
+        server_host = self.request.host.split(':')[0]  # Split to remove port if present
+        serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
         focusHtml = templatize(getFile('focus.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js, 'color':focusPeakingColor, 'threshold':focusPeakingthreshold})
         self.write(focusHtml)
 
 class jmuxerHandler(tornado.web.RequestHandler):
     def get(self):
+        jmuxerJs = getFile('jmuxer.min.js')
         self.set_header('Content-Type', 'text/javascript')
         self.write(jmuxerJs)
 
@@ -341,7 +338,7 @@ class SSEHandler(tornado.web.RequestHandler):
     async def get(self):
         while True:
             if self.request.connection.stream.closed():
-                print("Stream is closed")
+                logging.info("Stream is closed")
                 # break out of generator loop
                 break
             try:
@@ -357,7 +354,7 @@ class SSEHandler(tornado.web.RequestHandler):
                         # log distance in m
                         start_lat, start_lon, start_alt = Config.rec_start_position
                         east, north = gps_to_meters_east_north(start_lat, start_lon, msg.lat/1.0e7, msg.lon/1.0e7)
-                        print(f"{start_lat = }, {msg.lat = },  {start_lon = }, {msg.lon = }, {east:.1f}, {north:.1f}")
+                        # print(f"{start_lat = }, {msg.lat = },  {start_lon = }, {msg.lon = }, {east:.1f}, {north:.1f}")
                         self.write(f"data: East = {east:.1f}, North = {north:.1f} \n\n")                        
                     else:
                         altitude = msg.alt / 1000.0
@@ -368,7 +365,7 @@ class SSEHandler(tornado.web.RequestHandler):
                     self.count += 1
                     await self.flush()
             except Exception as e:
-                print("Error in SSEHandler", e)
+                logging.warning("Error in SSEHandler", e)
                 pass
             await tornado.gen.sleep(1)  # Wait for 1 second
 
@@ -398,7 +395,7 @@ class RecordHandler(tornado.web.RequestHandler):
                 msg = Config.mav_msg_GLOBAL_POSITION_INT
                 Config.rec_start_position = (msg.lat/1.0e7, msg.lon/1.0e7, msg.alt/1000.0)
 
-            print(f"Recording started to {fn_gpx} & {fn_vid}")
+            logging.info(f"Recording started to {fn_gpx} & {fn_vid}")
 
 
 
@@ -408,7 +405,7 @@ class RecordHandler(tornado.web.RequestHandler):
 
   
             def capture_arr():
-                print('Starting capture Thread')
+                logging.info('Starting capture Thread')
 
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 scale = 1
@@ -416,7 +413,7 @@ class RecordHandler(tornado.web.RequestHandler):
                 colour = (0,255, 0)
                 # Time delay for g_FRAMERATE frames per second
                 delay = 1 / Config.REC_FRAMERATE
-                print(f"{Config.REC_FRAMERATE = }")
+                logging.debug(f"{Config.REC_FRAMERATE = }")
                 frame_count = 0
                 while Config.DO_RECORD:
                     start_time = time.time()
@@ -434,7 +431,7 @@ class RecordHandler(tornado.web.RequestHandler):
 
                     start = time.time()
                     buffer = simplejpeg.encode_jpeg(arr, quality=Config.JPG_QUALITY, colorspace='RGB', colorsubsampling='420', fastdct=True)
-                    print(f"simple-jpeg encode time = {time.time() - start} {len(buffer) = }")
+                    logging.debug(f"simple-jpeg encode time = {time.time() - start} {len(buffer) = }")
 
                     if self.jpg_que.full():
                         self.jpg_que.get() # If the queue is full, remove an item before adding a new one
@@ -448,9 +445,9 @@ class RecordHandler(tornado.web.RequestHandler):
             # Define your recording logic in a function
             def record():
 
-                print('Starting record Thread')
+                logging.debug('Starting record Thread')
                 status = f'Recording to {fn_gpx} & {fn_vid}'
-                print(status)
+
                 StatusHandler.update_status(status)
                 quality = 90
                 if Config.RUN_CAMERA:
@@ -476,7 +473,7 @@ class RecordHandler(tornado.web.RequestHandler):
                         except queue.Empty:
                             continue
                         except Exception as e:
-                            print(f"Error in record thread {e}")
+                            logging.error(f"Error in record thread {e}")
 
 
                     else:
@@ -490,7 +487,6 @@ class RecordHandler(tornado.web.RequestHandler):
                     if time.time() - last_time > 1: 
 
                         status = f'Video fps = {avg_fps:.2f}  {frame_count = }'
-                        print(status)
                         StatusHandler.update_status(status)
                         last_time = time.time()
 
@@ -506,7 +502,7 @@ class RecordHandler(tornado.web.RequestHandler):
                         gpx_status = f'GPX saved to {fn_gpx}'
 
                 status = f'{gpx_status}:     {vid_status}'
-                print(status)
+
                 StatusHandler.update_status(status)
 
             # Create and start a thread running the record function
@@ -523,7 +519,7 @@ class RecordHandler(tornado.web.RequestHandler):
 
 
         else:
-            print("Recording stopped")
+            logging.info("Recording stopped")
             Config.DO_RECORD = False
             Config.rec_start_position = None
             # self.thread.join()
@@ -533,7 +529,7 @@ class RecordHandler(tornado.web.RequestHandler):
 class FilenameHandler(tornado.web.RequestHandler):
     def post(self):
         Config.record_filename = self.get_argument('videoFile')
-        print(f"Record filename: {Config.record_filename }")
+        logging.debug(f"Set Record filename: {Config.record_filename }")
 
 
 class StatusHandler(tornado.web.RequestHandler):
@@ -555,14 +551,14 @@ class StatusHandler(tornado.web.RequestHandler):
     async def get(self):
         while True:
             if self.request.connection.stream.closed():
-                print("Stream is closed")
+                logging.debug("Stream is closed")
                 # break out of generator loop
                 break
             try:
                 self.write(f"data: {self.status} \n\n")
                 await self.flush()
             except Exception as e:
-                print("Error in SSEHandler", e)
+                logging.error("Error in SSEHandler", e)
                 pass
             await tornado.gen.sleep(1)  # Wait for 1 second
 
@@ -594,13 +590,13 @@ def keyboard_handler(fd, events):
     # print(f"You typed: {message}")
     # This function will be called whenever a key is pressed
     key = os.read(fd, 1)
-    print(f"You typed: {key.decode()}")
+
     if key == b'w':
         LensPosition += FOCUS_INC
         LensPosition = max(0, min(LensPosition, 10))
         focal_distance = 1/(LensPosition+0.00001)
         # picam2.set_controls({'LensPosition': LensPosition})
-        print(f"{focal_distance = }  {LensPosition = }")
+        # print(f"{focal_distance = }  {LensPosition = }")
 
     if key == b's':
         # clip focal_distance to 0 and 500  (5m)
@@ -608,7 +604,7 @@ def keyboard_handler(fd, events):
         LensPosition = max(0, min(LensPosition, 10))
         focal_distance = 1/(LensPosition+0.00001)
         # picam2.set_controls({'LensPosition': LensPosition})
-        print(f"{focal_distance = }  {LensPosition = }")
+        # print(f"{focal_distance = }  {LensPosition = }")
         StatusHandler.update_status(f'New file_cnt {file_cnt}')
         file_cnt += 1
 
@@ -617,7 +613,7 @@ def keyboard_handler(fd, events):
         # Stop the loop
         loop.stop()
         # picam2.stop()
-        print("********  Stop the loop")
+        # print("********  Stop the loop")
 
 
 
@@ -628,9 +624,9 @@ def process_mavlink_data():
     # the_connection = mavutil.mavlink_connection('udpin:0.0.0.0:14445')
     # Wait for the first heartbeat 
     # This sets the system and component ID of remote system for the link
-    print("Waiting for heartbeat from system")
+    logging.info("Waiting for heartbeat from system")
     the_connection.wait_heartbeat()
-    print("Heartbeat from system (system %u component %u)" % (the_connection.target_system, the_connection.target_system))
+    logging.info("Heartbeat from system (system %u component %u)" % (the_connection.target_system, the_connection.target_system))
 
     # Wait for the vehicle to send GPS_RAW_INT message
     time.sleep(1)
@@ -646,9 +642,9 @@ def process_mavlink_data():
             if msg is not None:
                 pass
             else:
-                print('No GPS_RAW_INT message received within the timeout period')
+                logging.info('No GPS_RAW_INT message received within the timeout period')
         except:
-            print('Error while waiting for GPS_RAW_INT message')
+            logging.error('Error while waiting for GPS_RAW_INT message')
 
 
 def update_status_periodically():
@@ -689,10 +685,11 @@ def main():
     Config.RESOLUTION, Config.REC_FRAMERATE, Config.JPG_QUALITY, Config.PORT, Config.MAVPORT  \
         = args.resolution, args.framerate_record,  args.jpg_quality, args.port, args.mavport
 
-    print(f"{Config.RESOLUTION = }, {Config.REC_FRAMERATE = }, {Config.CAM_FRAMERATE = }, \
+    logging.info(f"{Config.RESOLUTION = }, {Config.REC_FRAMERATE = }, {Config.CAM_FRAMERATE = }, \
           {Config.JPG_QUALITY = }, {Config.PORT = }, {Config.MAVPORT = }")
 
     set_camera()
+
 
     # Create a new thread and start it
     mavlink_thread = threading.Thread(target=process_mavlink_data, daemon=True)
@@ -747,8 +744,8 @@ def main():
         try:
             application.listen(Config.PORT)
         except Exception as e:
-            print(f"Error in application.listen(serverPort) {e}")
-            print("is the application running already? , in a service?")
+            logging.error(f"Error in application.listen(serverPort) {e}")
+            logging.error("is the application running already? , in a service?")
             return
             
         loop = tornado.ioloop.IOLoop.current()
@@ -765,10 +762,10 @@ def main():
             picam2.stop_recording()
 
         loop.stop()
-        print("********  KeyboardInterrupt")
+        # print("********  KeyboardInterrupt")
     finally:
         if KEYBOARD:
-            print("********  Restore the terminal settings")
+            # print("********  Restore the terminal settings")
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
 
