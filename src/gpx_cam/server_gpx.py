@@ -90,17 +90,16 @@ def set_camera():
         picam2.start()
         # picam2.controls.ExposureTime = 20000
         # picam2.set_controls({"ExposureTime": 20000, "FrameRate": Config.CAM_FRAMERATE})
-        picam2.set_controls({"FrameRate": Config.CAM_FRAMERATE})
-
-        colour = (0,255, 0)
-        origin = (0, 30)
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        scale = 1
-        thickness = 2
+        picam2.set_controls({"AeExposureMode": 1, "FrameRate": Config.CAM_FRAMERATE})    # 1 = short https://libcamera.org/api-html/namespacelibcamera_1_1controls.html
 
 
         PRE_CALLBACK = False
         if PRE_CALLBACK:
+            colour = (0,255, 0)
+            origin = (0, 30)
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            scale = 1
+            thickness = 2
             def apply_timestamp(request):
 
                 with MappedArray(request, "main") as m:
@@ -125,18 +124,6 @@ centerThickness = 2
 
 gridColor = '255, 0, 0, 1.0'
 gridThickness = 2
-
-
-
-
-def get_interface_ip(interface_name):
-    try:
-        interface_addresses = ni.ifaddresses(interface_name)
-        ip_address = interface_addresses[ni.AF_INET][0]['addr']
-        return ip_address
-    except (KeyError, ValueError, IndexError):
-        return None
-
 
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
@@ -656,7 +643,7 @@ def update_status_periodically():
         time.sleep(1)  # Update status every 1 seconds
         for i in range(10):
             md = picam2.capture_metadata()
-            StatusHandler.update_status(f'ExposureTime:{md["ExposureTime"]}, AnalogueGain: {md["AnalogueGain"]}, AnalogueGain: {md["AnalogueGain"]}')
+            StatusHandler.update_status(f'ExposureTime:{md["ExposureTime"]}, AnalogueGain: {md["AnalogueGain"]}, DigitalGain: {md["DigitalGain"]}')
             time.sleep(1)  # Update status every 1 seconds
 
 loop = None
