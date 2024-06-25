@@ -139,6 +139,10 @@ sudo systemctl stop filemanager.service
 sudo systemctl disable runserver.service
 sudo systemctl disable filemanager.service
 ```
+To show the log
+``` sh
+journalctl -u runserver -n 50
+```
 
 # Optional configuration
 open server.py and edit the following section of code as needed. 

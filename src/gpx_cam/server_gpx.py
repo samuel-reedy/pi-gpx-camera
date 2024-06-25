@@ -29,7 +29,7 @@ except:
 
 from pymavlink import mavutil
 import time
-
+import json
 import gpxpy
 import gpxpy.gpx
 
@@ -64,6 +64,7 @@ class Config:
     mav_msg_GLOBAL_POSITION_INT = None 
     # resolution = [0, 0]
     framerate_js = CAM_FRAMERATE
+    cam_exposure = None
 
 try:
     # assert False
@@ -72,6 +73,14 @@ try:
 except:
     logging.error("Error in Picamera2, disabling the camera")
     Config.RUN_CAMERA = False
+
+def set_exposure(exposure):
+    if Config.RUN_CAMERA:
+        # clip 100 to 20000
+        exposure = max(100, min(exposure, 20000))
+        Config.cam_exposure = exposure
+        picam2.set_controls({'ExposureTime': Config.cam_exposure})
+        logging.debug(f"Set new exposure: {Config.cam_exposure}")
 
 def set_camera():
     if Config.RUN_CAMERA:
@@ -91,6 +100,7 @@ def set_camera():
         # picam2.controls.ExposureTime = 20000
         # picam2.set_controls({"ExposureTime": 20000, "FrameRate": Config.CAM_FRAMERATE})
         picam2.set_controls({"AeExposureMode": 1, "FrameRate": Config.CAM_FRAMERATE})    # 1 = short https://libcamera.org/api-html/namespacelibcamera_1_1controls.html
+        set_exposure(2000)
 
 
         PRE_CALLBACK = False
@@ -274,7 +284,7 @@ class centerHandler(tornado.web.RequestHandler):
     def get(self):
         server_host = self.request.host.split(':')[0]  # Split to remove port if present
         serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
-        centerHtml = templatize(getFile('center.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js, 'record_filename':Config.record_filename, 'color':centerColor, 'thickness':centerThickness})
+        centerHtml = templatize(getFile('center.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js, 'record_filename':Config.record_filename, 'exposure': Config.cam_exposure})
         self.write(centerHtml)
 
 
@@ -519,6 +529,26 @@ class FilenameHandler(tornado.web.RequestHandler):
         logging.debug(f"Set Record filename: {Config.record_filename }")
 
 
+class ExposureHandler(tornado.web.RequestHandler):
+    def post(self):
+        try:
+            # Assuming the exposure value is sent as a JSON object {"exposure": value}
+            exposure_data = json.loads(self.request.body)
+            new_exposure = exposure_data.get('exposure')
+
+            if new_exposure is not None:
+
+                set_exposure(new_exposure)
+                self.write({"status": "success", "message": "Exposure updated successfully."})
+            else:
+                self.set_status(400)  # Bad Request
+                self.write({"status": "error", "message": "Invalid exposure value."})
+        except Exception as e:
+            logging.error(f"Error updating exposure: {e}")
+            self.set_status(500)  # Internal Server Error
+            self.write({"status": "error", "message": "Failed to update exposure."})
+        self.finish()
+
 class StatusHandler(tornado.web.RequestHandler):
     clients = set()
     status = ''
@@ -698,6 +728,7 @@ def main():
         (r"/record", RecordHandler), 
         (r"/filename", FilenameHandler),
         (r"/status/", StatusHandler),
+        (r"/set-exposure", ExposureHandler)
 
     ]
 
