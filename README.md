@@ -106,7 +106,7 @@ You can set the name the files saved in the input box.
 
 # File Manager
 
-The view, download and delete files navigate to http://10.42.0.116:8085/
+The view, download and delete files navigate to 
 
 > **Note**: The window needs to be manually refreshed to see new files (needs a periodic update /  file watcher)
 

@@ -10,9 +10,10 @@ import os
 import tornado.web, tornado.ioloop, tornado.websocket  
 import tornado.gen
 from string import Template
-import io, os, socket
+import io, os
+import netifaces as ni
 try:
-    assert False
+    # assert False
     from picamera2 import Picamera2, MappedArray
     from picamera2.encoders import H264Encoder
     from picamera2.outputs import Output
@@ -52,17 +53,17 @@ class Config:
     DO_RECORD = False
     rec_start_position = None
     record_filename = "transect-001"
-    RESOLUTION = 0.8
-    REC_FRAMERATE = 2
-    CAM_FRAMERATE = 10
-    JPG_QUALITY = 95
-    PORT = 8075
+    RESOLUTION = None  # set by params
+    REC_FRAMERATE = None # set by params
+    CAM_FRAMERATE = 10 
+    JPG_QUALITY = None # set by params
+    PORT = None # set by params
     mav_msg_GLOBAL_POSITION_INT = None 
     # resolution = [0, 0]
     framerate_js = CAM_FRAMERATE
 
 try:
-    assert False
+    # assert False
     picam2 = Picamera2()
     Config.RUN_CAMERA = True
 except:
@@ -85,7 +86,8 @@ def set_camera():
         picam2.configure(video_config)
         picam2.start()
         # picam2.controls.ExposureTime = 20000
-        picam2.set_controls({"ExposureTime": 20000, "FrameRate": Config.CAM_FRAMERATE})
+        # picam2.set_controls({"ExposureTime": 20000, "FrameRate": Config.CAM_FRAMERATE})
+        picam2.set_controls({"FrameRate": Config.CAM_FRAMERATE})
 
         colour = (0,255, 0)
         origin = (0, 30)
@@ -120,9 +122,35 @@ gridColor = '255, 0, 0, 1.0'
 gridThickness = 2
 # end configuration
 
-s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-s.connect(('8.8.8.8', 0))  
-serverIp = s.getsockname()[0]
+# s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+# s.connect(('8.8.8.8', 0))  
+# serverIp = s.getsockname()[0]
+
+
+
+def get_interface_ip(interface_name):
+    try:
+        interface_addresses = ni.ifaddresses(interface_name)
+        ip_address = interface_addresses[ni.AF_INET][0]['addr']
+        return ip_address
+    except (KeyError, ValueError, IndexError):
+        return None
+
+# Try to get the Ethernet IP first
+serverIp = get_interface_ip('eth0')
+
+# If Ethernet IP is not found, try to get the WiFi IP
+if serverIp is None:
+    serverIp = get_interface_ip('wlan0')
+    if serverIp:
+        print(f"Using WiFi IP: {serverIp}")
+    else:
+        print("No IP found for Ethernet or WiFi.")
+else:
+    print(f"Using Ethernet IP: {serverIp}")
+
+# # Optionally, print all interfaces for debugging
+# print(ni.interfaces())
 
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
@@ -141,7 +169,7 @@ def templatize(content, replacements):
 indexHtml = templatize(getFile('index.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js})
 
 gridHtml = templatize(getFile('grid.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js,'color':gridColor, 'thickness':gridThickness})
-focusHtml = templatize(getFile('focus.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js, 'color':focusPeakingColor, 'threshold':focusPeakingthreshold})
+# focusHtml = templatize(getFile('focus.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js, 'color':focusPeakingColor, 'threshold':focusPeakingthreshold})
 jmuxerJs = getFile('jmuxer.min.js')
 
 
@@ -278,6 +306,7 @@ class gridHandler(tornado.web.RequestHandler):
 
 class focusHandler(tornado.web.RequestHandler):
     def get(self):
+        focusHtml = templatize(getFile('focus.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js, 'color':focusPeakingColor, 'threshold':focusPeakingthreshold})
         self.write(focusHtml)
 
 class jmuxerHandler(tornado.web.RequestHandler):
@@ -387,6 +416,7 @@ class RecordHandler(tornado.web.RequestHandler):
                 colour = (0,255, 0)
                 # Time delay for g_FRAMERATE frames per second
                 delay = 1 / Config.REC_FRAMERATE
+                print(f"{Config.REC_FRAMERATE = }")
                 frame_count = 0
                 while Config.DO_RECORD:
                     start_time = time.time()
@@ -458,6 +488,7 @@ class RecordHandler(tornado.web.RequestHandler):
 
                     # on every second
                     if time.time() - last_time > 1: 
+
                         status = f'Video fps = {avg_fps:.2f}  {frame_count = }'
                         print(status)
                         StatusHandler.update_status(status)
@@ -539,6 +570,9 @@ class StatusHandler(tornado.web.RequestHandler):
     def update_status(cls, status):
         cls.status = status
 
+
+
+
 import time
 from pymavlink import mavutil
 import sys 
@@ -617,14 +651,26 @@ def process_mavlink_data():
             print('Error while waiting for GPS_RAW_INT message')
 
 
+def update_status_periodically():
+
+    while True:
+        # Example: Update the status with a new value
+        resolution = [int(dim * Config.RESOLUTION) for dim in picam2.sensor_resolution] if Config.RUN_CAMERA else [0, 0]
+        StatusHandler.update_status(f'Resolution = {resolution}, record framerate = {Config.REC_FRAMERATE}, JPG Quality = {Config.JPG_QUALITY}')
+        time.sleep(1)  # Update status every 1 seconds
+        for i in range(10):
+            md = picam2.capture_metadata()
+            StatusHandler.update_status(f'ExposureTime:{md["ExposureTime"]}, AnalogueGain: {md["AnalogueGain"]}, AnalogueGain: {md["AnalogueGain"]}')
+            time.sleep(1)  # Update status every 1 seconds
+
 loop = None
 KEYBOARD = False
 def main():
 
     parser = argparse.ArgumentParser(description='Run the Rpi camera app.')
-    parser.add_argument('--resolution', '-r', type=float, help='Resolution of the video: >0.2 <1.0', default=0.8)
-    parser.add_argument('--framerate_record', '-fr', type=int, help='Framerate of the record', default=3)
-    parser.add_argument('--framerate_camera', '-fc', type=int, help='Framerate of the camera', default=10)
+    parser.add_argument('--resolution', '-r', type=float, help='Resolution of the video: >0.2 <1.0', default=1.0)
+    parser.add_argument('--framerate_record', '-fr', type=int, help='Framerate of the record', default=2)
+    # parser.add_argument('--framerate_camera', '-fc', type=int, help='Framerate of the camera', default=10)
     parser.add_argument('--jpg_quality', '-q', type=int, help='Quality of the JPEG encoding', default=95)
     parser.add_argument('--port', '-p', type=int, help='html port', default=8075)
     parser.add_argument('--mavport', '-mp', type=int, help='mavlink port', default=14570)    
@@ -633,15 +679,18 @@ def main():
     # clip the resolution to 0.2 and 1.0
     args.resolution = max(0.2, min(args.resolution, 1.0))
     args.framerate_record = max(1, min(args.framerate_record, 5))
-    args.framerate_camera = max(1, min(args.framerate_camera, 30))
+    # args.framerate_camera = max(1, min(args.framerate_camera, 30))
     args.jpg_quality = max(50, min(args.jpg_quality, 100))
 
 
 
     # Now you can access the values with args.resolution, args.framerate, and args.jpg_quality
-    print(args.resolution, args.framerate_record, args.framerate_camera, args.jpg_quality, args.port, args.mavport)
-    Config.RESOLUTION, Config.REC_FRAMERATE, Config.CAM_FRAMERATE, Config.JPG_QUALITY, Config.PORT, Config.MAVPORT  \
-        = args.resolution, args.framerate_record, args.framerate_camera,  args.jpg_quality, args.port, args.mavport
+
+    Config.RESOLUTION, Config.REC_FRAMERATE, Config.JPG_QUALITY, Config.PORT, Config.MAVPORT  \
+        = args.resolution, args.framerate_record,  args.jpg_quality, args.port, args.mavport
+
+    print(f"{Config.RESOLUTION = }, {Config.REC_FRAMERATE = }, {Config.CAM_FRAMERATE = }, \
+          {Config.JPG_QUALITY = }, {Config.PORT = }, {Config.MAVPORT = }")
 
     set_camera()
 
@@ -667,10 +716,13 @@ def main():
         (r"/status/", StatusHandler),
 
     ]
-    resolution = [int(dim * Config.RESOLUTION) for dim in picam2.sensor_resolution] if Config.RUN_CAMERA else [0, 0]
-    print(resolution)
-    StatusHandler.update_status(f'Resolution = {resolution}, record framerate = {Config.REC_FRAMERATE}, JPG Quality = {Config.JPG_QUALITY}')
 
+
+
+    # Start the status update thread
+    status_update_thread = threading.Thread(target=update_status_periodically)
+    status_update_thread.daemon = True  # Daemonize thread
+    status_update_thread.start()
 
 
 
