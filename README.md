@@ -104,6 +104,9 @@ The video file is mjpeg full res images but is only create if the camera is pres
 
 You can set the name the files saved in the input box.
 
+You can set the exposure time for the camera fromm 100us to 20 millisecs
+![pi-gpx-cam.gif](readmeAssets/pi-gpx-cam-exposure.gif)
+
 # File Manager
 
 The view, download and delete files navigate to 

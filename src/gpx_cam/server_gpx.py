@@ -276,15 +276,7 @@ class indexHandler(tornado.web.RequestHandler):
     def get(self):
         server_host = self.request.host.split(':')[0]  # Split to remove port if present
         serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
-        indexHtml = templatize(getFile('index.html'), {'ip':Config.serverIp, 'port':Config.PORT, 'fps':Config.framerate_js})
-        self.write(indexHtml)
-
-
-class centerHandler(tornado.web.RequestHandler):
-    def get(self):
-        server_host = self.request.host.split(':')[0]  # Split to remove port if present
-        serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
-        centerHtml = templatize(getFile('center.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js, 'record_filename':Config.record_filename, 'exposure': Config.cam_exposure})
+        centerHtml = templatize(getFile('index.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js, 'record_filename':Config.record_filename, 'exposure': Config.cam_exposure})
         self.write(centerHtml)
 
 
@@ -714,13 +706,14 @@ def main():
 
     
     # directory_to_serve = os.path.join(os.path.dirname(__file__), 'static')
-    # # directory_to_serve = os.path.dirname(__file__)
+    # directory_to_serve = os.path.dirname(__file__)
     # directory_to_serve = '/static'
 
     requestHandlers = [
         (r"/ws/", wsHandler),
-        (r"/", indexHandler),
-        (r"/center/", centerHandler),
+        # (r"/(.*)", indexHandler),
+        # (r"/", indexHandler),
+        (r"/center/", indexHandler),
         (r"/grid/", gridHandler),
         (r"/focus/", focusHandler),
         (r"/jmuxer.min.js", jmuxerHandler),
