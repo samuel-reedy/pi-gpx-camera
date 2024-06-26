@@ -11,11 +11,11 @@ When server.py is running the feed can be vied from any broswer via the followin
     ```
 2. The focus peaking screen 
     ```
-    http://<rpi_address>:<serverPort>/focus/
+    http://<rpi_address>:<serverPort>/focus
     ```
 3. The center reticle screen 
     ```
-    http://<rpi_address>:<serverPort>/center/
+    http://<rpi_address>:<serverPort>/center
     ```
 
 # Installation
