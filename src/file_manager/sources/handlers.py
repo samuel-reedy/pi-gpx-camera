@@ -2,6 +2,8 @@
 from requests.exceptions import HTTPError
 import tornado.web
 import tornado.httpclient
+from tornado.gen import coroutine
+
 from .utils import *
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -26,7 +28,7 @@ class LogoutHandler(BaseHandler):
         self.clear_cookie('user')
         self.redirect('/')
 
-class DownloadHandler(BaseHandler):
+class old_DownloadHandler(BaseHandler):
     def get(self, relpath):
         abspath = get_abspath(relpath, self.rootpath)
         filename = get_basename(relpath).replace(' ', '_')
@@ -47,8 +49,36 @@ class DownloadHandler(BaseHandler):
                         return
             except:
                 raise HTTPError(404)
-        # raise HTTPError(500)
 
+
+class DownloadHandler(BaseHandler):
+    @coroutine
+    def get(self, relpath):
+        abspath = get_abspath(relpath, self.rootpath)
+        filename = get_basename(relpath).replace(' ', '_')
+        if not relpath or not os.path.exists(abspath):
+            raise HTTPError(404)
+        self.set_header('Content-Type', 'application/force-download')
+        self.set_header('Content-Disposition', 'attachment; filename=%s' % filename)
+        try:
+            with open(abspath, "rb") as f:
+                while True:
+                    buffer = f.read(4096)
+                    if not buffer:
+                        break
+                    try:
+                        # flush the output buffer after each chunk is written, 
+                        # which allows Tornado to send the chunks to the client 
+                        # immediately instead of buffering the entire response. 
+                        # This approach can significantly reduce memory usage when sending large files.
+                        self.write(buffer)
+                        yield self.flush()
+                    except tornado.iostream.StreamClosedError:
+                        # Stop iteration if client disconnects
+                        break
+        except Exception as e:
+            # Handle exceptions
+            raise HTTPError(500)
 
 class DeleteHandler(BaseHandler):
     def get(self, relpath):
