@@ -53,7 +53,7 @@ class Config:
     wsURL = "ws://my_ip/ws/"
     CAM_TYPE = "hq-6mm-CS-pi"
     RUN_CAMERA = False
-    DO_RECORD = False
+    isRecording = False
     rec_start_position = None
     record_filename = "transect-001"
     RESOLUTION = None  # set by params
@@ -276,7 +276,9 @@ class indexHandler(tornado.web.RequestHandler):
     def get(self):
         server_host = self.request.host.split(':')[0]  # Split to remove port if present
         serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
-        centerHtml = templatize(getFile('index.html'), {'ip':serverIp, 'port':Config.PORT, 'fps':Config.framerate_js, 'record_filename':Config.record_filename, 'exposure': Config.cam_exposure})
+        centerHtml = templatize(getFile('index.html'), {'ip':serverIp, 'port':Config.PORT, \
+                                                        'fps':Config.framerate_js, 'record_filename':Config.record_filename, 'exposure': Config.cam_exposure, \
+                                                            'isRecording': 'true' if Config.isRecording else 'false'})
         self.write(centerHtml)
 
 
@@ -316,7 +318,10 @@ def gps_to_meters_east_north(lat1, lon1, lat2, lon2):
 
     return R * x, R * y
 
-class SSEHandler(tornado.web.RequestHandler):
+class StatusHandler(tornado.web.RequestHandler):
+    clients = set()
+    status = ''
+
     def initialize(self):
         self.set_header('Content-Type', 'text/event-stream')
         self.set_header('Cache-Control', 'no-cache')
@@ -324,6 +329,31 @@ class SSEHandler(tornado.web.RequestHandler):
         self.set_header('Connection', 'keep-alive')
         self.count = 0
 
+
+    def _get_latlon(self):
+        if Config.mav_msg_GLOBAL_POSITION_INT is not None:
+            msg = Config.mav_msg_GLOBAL_POSITION_INT
+
+            if Config.rec_start_position is not None:
+                start_lat, start_lon, start_alt = Config.rec_start_position
+                east, north = gps_to_meters_east_north(start_lat, start_lon, msg.lat/1.0e7, msg.lon/1.0e7)
+                data = {"latlon": f"East: {east:.1f}, North: {north:.1f}"}                      
+            else:
+                altitude = msg.alt / 1000.0
+                lat = msg.lat / 1.0e7
+                lon = msg.lon / 1.0e7
+                data = {"latlon": f"lat: {lat}, lon: {lon}, altitude: {altitude}"}
+            return data
+        return None
+    
+    def _get_record_state(self):
+        return {"isRecording": Config.isRecording}
+    def _get_status(self):
+        return {"status": self.status}
+
+    def _get_record_filename(self):
+        return {"record_filename": Config.record_filename}
+    
     async def get(self):
         while True:
             if self.request.connection.stream.closed():
@@ -331,32 +361,25 @@ class SSEHandler(tornado.web.RequestHandler):
                 # break out of generator loop
                 break
             try:
-                if Config.mav_msg_GLOBAL_POSITION_INT is not None:
-                    msg = Config.mav_msg_GLOBAL_POSITION_INT
+                data = self._get_latlon()
+                data.update(self._get_record_state())
+                data.update(self._get_record_filename())
+                data.update(self._get_status())
+                data = json.dumps(data)
 
-                    if Config.rec_start_position is not None:
-                        # # log distance in m
-                        # start_lat, start_lon, start_alt = Config.rec_start_position
-                        # distance = gpxpy.geo.haversine_distance(start_lat, start_lon, msg.lat/1.0e7, msg.lon/1.0e7)
-                        # print(f"{start_lat = }, {msg.lat = },  {start_lon = }, {msg.lon = }, Distance = {distance:.1f}")
-                        # self.write(f"data: Distance = {distance:.1f} \n\n")
-                        # log distance in m
-                        start_lat, start_lon, start_alt = Config.rec_start_position
-                        east, north = gps_to_meters_east_north(start_lat, start_lon, msg.lat/1.0e7, msg.lon/1.0e7)
-                        # print(f"{start_lat = }, {msg.lat = },  {start_lon = }, {msg.lon = }, {east:.1f}, {north:.1f}")
-                        self.write(f"data: East = {east:.1f}, North = {north:.1f} \n\n")                        
-                    else:
-                        altitude = msg.alt / 1000.0
-                        lat = msg.lat/ 1.0e7
-                        lon = msg.lon/ 1.0e7
-                        self.write(f"data: {lat = }  {lon = }  {altitude = } \n\n")
-
+                if data:
+                    self.write(f"data: {data} \n\n")
                     self.count += 1
-                    await self.flush()
+                    await self.flush()  # Flush the data to the client
+
             except Exception as e:
-                logging.warning("Error in SSEHandler", e)
+                logging.warning("Error in StatusHandler", e)
                 pass
             await tornado.gen.sleep(1)  # Wait for 1 second
+
+    @classmethod
+    def update_status(cls, status):
+        cls.status = status
 
 class RecordHandler(tornado.web.RequestHandler):
     def post(self):
@@ -368,27 +391,27 @@ class RecordHandler(tornado.web.RequestHandler):
             if not os.path.exists("../../data"):
                 os.makedirs("../../data")
             
-            fn_gpx = f"../../data/{Config.record_filename}.gpx" if Config.mav_msg_GLOBAL_POSITION_INT else 'No position MAV messages found'
-            fn_vid = f'../../data/{Config.record_filename}.avi' if Config.RUN_CAMERA else 'No Camera Found'
-            if Config.mav_msg_GLOBAL_POSITION_INT is not None:
-                gpx = gpxpy.gpx.GPX()
+            # fn_gpx = f"../../data/{Config.record_filename}.gpx" if Config.mav_msg_GLOBAL_POSITION_INT else 'No position MAV messages found'
+            # fn_vid = f'../../data/{Config.record_filename}.avi' if Config.RUN_CAMERA else 'No Camera Found'
+            # if Config.mav_msg_GLOBAL_POSITION_INT is not None:
+            #     gpx = gpxpy.gpx.GPX()
 
-                # Create a new track in our GPX file
-                gpx_track = gpxpy.gpx.GPXTrack(name='transect 1', description='transect 1 description')
-                gpx.tracks.append(gpx_track)
+            #     # Create a new track in our GPX file
+            #     gpx_track = gpxpy.gpx.GPXTrack(name='transect', description='transect description')
+            #     gpx.tracks.append(gpx_track)
 
-                # Create first segment in our GPX track:
-                gpx_segment = gpxpy.gpx.GPXTrackSegment()
-                gpx_track.segments.append(gpx_segment)
+            #     # Create first segment in our GPX track:
+            #     gpx_segment = gpxpy.gpx.GPXTrackSegment()
+            #     gpx_track.segments.append(gpx_segment)
 
-                msg = Config.mav_msg_GLOBAL_POSITION_INT
-                Config.rec_start_position = (msg.lat/1.0e7, msg.lon/1.0e7, msg.alt/1000.0)
+            #     msg = Config.mav_msg_GLOBAL_POSITION_INT
+            #     Config.rec_start_position = (msg.lat/1.0e7, msg.lon/1.0e7, msg.alt/1000.0)
 
-            logging.info(f"Recording started to {fn_gpx} & {fn_vid}")
+            # logging.info(f"Recording started to {fn_gpx} & {fn_vid}")
 
 
 
-            Config.DO_RECORD = True
+            Config.isRecording = True
             self.cap_que = queue.Queue(maxsize=2)
             self.jpg_que = queue.Queue(maxsize=2)
 
@@ -404,7 +427,7 @@ class RecordHandler(tornado.web.RequestHandler):
                 delay = 1 / Config.REC_FRAMERATE
                 logging.debug(f"{Config.REC_FRAMERATE = }")
                 frame_count = 0
-                while Config.DO_RECORD:
+                while Config.isRecording:
                     start_time = time.time()
                     arr = picam2.capture_array()
                     text = f'#{frame_count}'
@@ -432,7 +455,24 @@ class RecordHandler(tornado.web.RequestHandler):
       
 
             # Define your recording logic in a function
-            def record():
+            def record(record_filename):
+                fn_gpx = f"../../data/{record_filename}.gpx" if Config.mav_msg_GLOBAL_POSITION_INT else 'No position MAV messages found'
+                fn_vid = f'../../data/{record_filename}.avi' if Config.RUN_CAMERA else 'No Camera Found'
+                if Config.mav_msg_GLOBAL_POSITION_INT is not None:
+                    gpx = gpxpy.gpx.GPX()
+
+                    # Create a new track in our GPX file
+                    gpx_track = gpxpy.gpx.GPXTrack(name='transect', description='transect description')
+                    gpx.tracks.append(gpx_track)
+
+                    # Create first segment in our GPX track:
+                    gpx_segment = gpxpy.gpx.GPXTrackSegment()
+                    gpx_track.segments.append(gpx_segment)
+
+                    msg = Config.mav_msg_GLOBAL_POSITION_INT
+                    Config.rec_start_position = (msg.lat/1.0e7, msg.lon/1.0e7, msg.alt/1000.0)
+
+                logging.info(f"Recording started to {fn_gpx} & {fn_vid}")
 
                 logging.debug('Starting record Thread')
                 status = f'Recording to {fn_gpx} & {fn_vid}'
@@ -446,7 +486,7 @@ class RecordHandler(tornado.web.RequestHandler):
                 frame_count = 0
                 start_time = time.time()
                 last_time = start_time
-                while Config.DO_RECORD:
+                while Config.isRecording:
                     if Config.mav_msg_GLOBAL_POSITION_INT is not None:
                         msg = Config.mav_msg_GLOBAL_POSITION_INT
                         altitude = msg.alt / 1000.0
@@ -471,11 +511,13 @@ class RecordHandler(tornado.web.RequestHandler):
 
                     frame_count += 1
                     avg_fps = frame_count / (time.time() - start_time)
+                    # get the filesize of the video
+                    filesize = os.path.getsize(fn_vid) if Config.RUN_CAMERA else 0
 
                     # on every second
                     if time.time() - last_time > 1: 
 
-                        status = f'Video fps = {avg_fps:.2f}  {frame_count = }'
+                        status = f'Video fps = {avg_fps:.2f}  {frame_count = }  {filesize = }'
                         StatusHandler.update_status(status)
                         last_time = time.time()
 
@@ -494,8 +536,14 @@ class RecordHandler(tornado.web.RequestHandler):
 
                 StatusHandler.update_status(status)
 
+            def record_max_size():
+                while Config.isRecording:
+                    record()
+                
+
+
             # Create and start a thread running the record function
-            self.rec_thread = threading.Thread(target=record)
+            self.rec_thread = threading.Thread(target=record, args=(Config.record_filename,))
             self.rec_thread.daemon = True
             self.rec_thread.start()
             if Config.RUN_CAMERA:
@@ -509,7 +557,7 @@ class RecordHandler(tornado.web.RequestHandler):
 
         else:
             logging.info("Recording stopped")
-            Config.DO_RECORD = False
+            Config.isRecording = False
             Config.rec_start_position = None
             # self.thread.join()
 
@@ -518,7 +566,7 @@ class RecordHandler(tornado.web.RequestHandler):
 class FilenameHandler(tornado.web.RequestHandler):
     def post(self):
         Config.record_filename = self.get_argument('videoFile')
-        logging.debug(f"Set Record filename: {Config.record_filename }")
+        logging.info(f"Set Record filename: {Config.record_filename }")
 
 
 class ExposureHandler(tornado.web.RequestHandler):
@@ -541,14 +589,16 @@ class ExposureHandler(tornado.web.RequestHandler):
             self.write({"status": "error", "message": "Failed to update exposure."})
         self.finish()
 
-class StatusHandler(tornado.web.RequestHandler):
+class old_StatusHandler(tornado.web.RequestHandler):
     clients = set()
     status = ''
 
     def initialize(self):
-        self.set_header('content-type', 'text/event-stream')
-        self.set_header('cache-control', 'no-cache')
-        self.set_header('connection', 'keep-alive')
+        self.set_header('Content-Type', 'text/event-stream')
+        self.set_header('Cache-Control', 'no-cache')
+        self.set_header('Access-Control-Allow-Origin', '*')
+        self.set_header('Connection', 'keep-alive')
+        self.count = 0
 
     def open(self):
         StatusHandler.clients.add(self)
@@ -717,11 +767,13 @@ def main():
         (r"/grid", gridHandler),
         (r"/focus", focusHandler),
         (r"/jmuxer.min.js", jmuxerHandler),
-        (r"/sse/", SSEHandler),
+        # (r"/sse/", SSEHandler),
         (r"/record", RecordHandler), 
         (r"/filename", FilenameHandler),
         (r"/status/", StatusHandler),
-        (r"/set-exposure", ExposureHandler)
+        (r"/set-exposure", ExposureHandler),
+        # (r"/(.*)", indexHandler),
+        (r"/", indexHandler),    # this one is last so not to interfer with the above routes
 
     ]
 

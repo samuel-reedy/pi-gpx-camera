@@ -5,7 +5,7 @@
 # Viewing
 When server.py is running the feed can be vied from any broswer via the following urls. **_rpi_address_** is the ip address or hostname of your Raspberry Pi, and **_serverPort_** is the port you set in the configuration section.  
 
-1. The primary viewing screen  (not currently workimg!!!)
+1. The primary viewing screen
     ```
     http://<rpi_address>:<serverPort>/   
     ```
@@ -13,10 +13,7 @@ When server.py is running the feed can be vied from any broswer via the followin
     ```
     http://<rpi_address>:<serverPort>/focus
     ```
-3. The center reticle screen 
-    ```
-    http://<rpi_address>:<serverPort>/center
-    ```
+
 
 # Installation
 1. [Ensure the camera module is properly connected to the Raspberry Pi](https://projects.raspberrypi.org/en/projects/getting-started-with-picamera/2) with Bullseye or later based OS.

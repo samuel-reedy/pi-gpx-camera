@@ -32,16 +32,40 @@
             margin-left: -1rem;
         }
 
+        .video-container {
+            position: relative;
+            width: 640px; /* Specify the width */
+            height: 360px; /* Specify the height */
+        }
+
         #stream, #canvas {
-            max-height: calc(100% - 70px);
-            max-width: 100%;
-            margin: auto;
+            margin-top: 30px;
             position: absolute;
-            top: 1;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        /* #stream, #canvas { */
+            /* margin-top: 70px; */
+            /* padding-top: 5% !important;  */
+            /* max-height: calc(100% - 70px); */
+            /* max-height: 100%; */
+            /* max-width: 100%; */
+            /* margin: auto; */
+            /* position: absolute; */
+            /* display: block;   Makes each element take up the full width and stack vertically  */
+            /* margin: auto; */
+            /* top: 1;
             left: 0;
             bottom: 0;
-            right: 0;
-        }
+            right: 0;  */
+
+            /* max-height: calc(100% - 90px); */
+            /* width: 100% !important; */
+            /* padding-top: 5% !important;  */
+            /* height: 0% !important;  */
+        /* } */
 
         #topBar {
             display: flex;
@@ -121,10 +145,10 @@
             font-weight: bold;
         }
 
-        #stream, #canvas {
-            display: block; /* Makes each element take up the full width and stack vertically */
-            margin: auto; /* Centers the elements if they don't take up the full container width */
-        }
+        /* #stream, #canvas { 
+            display: block;   Makes each element take up the full width and stack vertically  */
+            /* margin: auto;   Centers the elements if they don't take up the full container width  */
+       /* } */
 
         /* Responsive Design */
         @media (max-width: 768px) {
@@ -142,9 +166,12 @@
                 text-align: center;
             }
 
-            #stream, #canvas {
+            /* #stream, #canvas {
                 max-height: calc(100% - 90px);
-            }
+                width: 100% !important;
+                padding-top: 100% !important;
+                height: 0 !important;
+            } */
         }
 
         @media (max-width: 480px) {
@@ -178,14 +205,21 @@
             <button id="recordButton">Start Recording</button>
 
         </div>
-        <div id="video">
+        <div id="video-container">
             <video autoplay muted id="stream"></video>
             <canvas id="canvas"></canvas>  
         </div>
         <div id="statusText"></div>
     </div>
+
     <script>
-        var isRecording = false;
+        document.addEventListener("DOMContentLoaded", function() {
+            var topBarHeight = document.getElementById('topBar').offsetHeight;
+            var streamStage = document.getElementById('streamStage');
+            streamStage.style.margin = topBarHeight + 'px';
+            console.log("topBarHeight", topBarHeight)
+        });
+                var isRecording = $isRecording;
 
         function sendFilename(filename) {
             var xhr = new XMLHttpRequest();
@@ -194,15 +228,32 @@
             xhr.send('videoFile=' + encodeURIComponent(filename));
         }
 
-        var source = new EventSource('/sse/');
+        // Crude way of setting the page state based on the sse json data sent at 1 FPS
+        var source = new EventSource('/status/');
         source.onmessage = function(event) {
+            var data = JSON.parse(event.data);
+            if (data.latlon) {
+                // var latLonAltitude = 'Latitude: ' + data.lat+', Longitude: ' + data.lon+ ', Altitude: ' + data.altitude;
+                document.getElementById('latLon').innerHTML = data.latlon;
+            }
+            // // set the record button state based on the recording status
+            // isRecording = data.isRecording;
+            // document.getElementById('recordButton').textContent = isRecording ? 'Stop Recording' : 'Start Recording';
+            // // Update the background color based on the recording status
+            // recordButton.style.backgroundColor = isRecording ? 'red' : 'green';
+            //filename
+            document.getElementById('videoFile').value = data.record_filename;
 
-            document.getElementById('latLon').innerHTML = event.data;
+            // Status text
+            // console.log(event.data);
+            document.getElementById('statusText').innerHTML = event.data;
         };
 
+
+        
         var statusSource = new EventSource('/status/');
         statusSource.onmessage = function(event) {
-            console.log(event.data);
+            // console.log(event.data);
             document.getElementById('statusText').innerHTML = event.data;
         };
 
@@ -346,6 +397,11 @@
             window.onorientationchange = function() {
                 center.render();
             };
+
+            // set record button state
+            document.getElementById('recordButton').textContent = isRecording ? 'Stop Recording' : 'Start Recording';
+            recordButton.style.backgroundColor = isRecording ? 'red' : 'green';
+
         };
     </script>
 </body>
