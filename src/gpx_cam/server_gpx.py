@@ -62,6 +62,7 @@ class Config:
     JPG_QUALITY = None # set by params
     PORT = None # set by params
     mav_msg_GLOBAL_POSITION_INT = None 
+    mav_satellites_visible = 0
     # resolution = [0, 0]
     framerate_js = CAM_FRAMERATE
     cam_exposure = None
@@ -333,16 +334,18 @@ class StatusHandler(tornado.web.RequestHandler):
     def _get_latlon(self):
         if Config.mav_msg_GLOBAL_POSITION_INT is not None:
             msg = Config.mav_msg_GLOBAL_POSITION_INT
+            n_satellites = Config.mav_satellites_visible
 
             if Config.rec_start_position is not None:
+                altitude = msg.alt / 1000.0
                 start_lat, start_lon, start_alt = Config.rec_start_position
                 east, north = gps_to_meters_east_north(start_lat, start_lon, msg.lat/1.0e7, msg.lon/1.0e7)
-                data = {"latlon": f"East: {east:.1f}, North: {north:.1f}"}                      
+                data = {"latlon": f"East: {east:.1f}, North: {north:.1f}, altitude: {altitude}, Satellites: {n_satellites}"}                      
             else:
                 altitude = msg.alt / 1000.0
                 lat = msg.lat / 1.0e7
                 lon = msg.lon / 1.0e7
-                data = {"latlon": f"lat: {lat}, lon: {lon}, altitude: {altitude}"}
+                data = {"latlon": f"lat: {lat}, lon: {lon}, altitude: {altitude}, Satellites: {n_satellites}"}
             return data
         return None
     
@@ -360,21 +363,21 @@ class StatusHandler(tornado.web.RequestHandler):
                 logging.info("Stream is closed")
                 # break out of generator loop
                 break
-            try:
-                data = self._get_latlon()
+
+            data = self._get_latlon()
+            if data is not None:
                 data.update(self._get_record_state())
                 data.update(self._get_record_filename())
                 data.update(self._get_status())
                 data = json.dumps(data)
-
-                if data:
+                try:
                     self.write(f"data: {data} \n\n")
                     self.count += 1
                     await self.flush()  # Flush the data to the client
+                except Exception as e:
+                    logging.warning("Error in StatusHandler", e)
+                    pass
 
-            except Exception as e:
-                logging.warning("Error in StatusHandler", e)
-                pass
             await tornado.gen.sleep(1)  # Wait for 1 second
 
     @classmethod
@@ -492,7 +495,9 @@ class RecordHandler(tornado.web.RequestHandler):
                         altitude = msg.alt / 1000.0
                         lat = msg.lat / 1.0e7
                         lon = msg.lon/ 1.0e7
-                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), speed=0.0,symbol='Waypoint'))
+                        n_satellites = Config.mav_satellites_visible
+                        str_n_sats = f'Satellites: {n_satellites}'
+                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), comment=str_n_sats, speed=n_satellites, symbol='Waypoint'))
                         # todo add photo frame number
 
                     if Config.RUN_CAMERA:
@@ -512,7 +517,10 @@ class RecordHandler(tornado.web.RequestHandler):
                     frame_count += 1
                     avg_fps = frame_count / (time.time() - start_time)
                     # get the filesize of the video
-                    filesize = os.path.getsize(fn_vid) if Config.RUN_CAMERA else 0
+                    try:
+                        filesize = os.path.getsize(fn_vid) if Config.RUN_CAMERA else 0
+                    except Exception as e:
+                        filesize = 0
 
                     # on every second
                     if time.time() - last_time > 1: 
@@ -695,8 +703,10 @@ def process_mavlink_data():
         try: 
             # Wait for a GPS_RAW_INT message with a timeout of 10 seconds
             msg = the_connection.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=10)
-
             Config.mav_msg_GLOBAL_POSITION_INT = msg
+
+            msg = the_connection.recv_match(type='GPS_RAW_INT', blocking=True, timeout=10)
+            Config.mav_satellites_visible = msg.satellites_visible
 
             if msg is not None:
                 pass
