@@ -480,8 +480,8 @@ class RecordHandler(tornado.web.RequestHandler):
 
             # Define your recording logic in a function
             def record(record_filename):
-                fn_gpx = f"../../data/recording{record_filename}.gpx" if Config.mav_msg_GLOBAL_POSITION_INT else 'No position MAV messages found'
-                fn_vid = f'../../data/recording{record_filename}.avi' if Config.RUN_CAMERA else 'No Camera Found'
+                fn_gpx = f"../../data/recording/{record_filename}.gpx" if Config.mav_msg_GLOBAL_POSITION_INT else 'No position MAV messages found'
+                fn_vid = f'../../data/recording/{record_filename}.avi' if Config.RUN_CAMERA else 'No Camera Found'
                 if Config.mav_msg_GLOBAL_POSITION_INT is not None:
                     gpx = gpxpy.gpx.GPX()
 
