@@ -106,6 +106,26 @@
             text-align: center; /* Center the text */
             /* -moz-appearance: textfield; Removes spinner arrows from Firefox */
         }
+
+        #framerateControl {
+            color: white; /* Text color */
+            display: flex; /* Aligns items in a row */
+            align-items: center; /* Centers items vertically */
+            gap: 10px; /* Adds space between the label and the spinner */
+        }
+
+        #framerateSpinner {
+            background-color: #161615; /* Match top bar background */
+            color: white; /* Text color */
+            font-family: Arial, sans-serif; /* Match font */
+            font-weight: bold; /* Bold text */
+            border: 1px solid #fff; /* White border */
+            padding: 5px; /* Padding */
+            margin-right: 10px; /* Space on the right */
+            width: 80px; /* Fixed width for consistency */
+            text-align: center; /* Center the text */
+            /* -moz-appearance: textfield; Removes spinner arrows from Firefox */
+        }
 /* 
         label[for="exposureSpinner"] {
             color: white;
@@ -140,7 +160,7 @@
         #statusText {
             position: absolute;
             bottom: 0;
-            color: rgb(255, 208, 1);
+            color: rgb(0, 255, 0);
             font-family: Arial, sans-serif;
             font-weight: bold;
         }
@@ -198,12 +218,13 @@
             <div id="exposureControl">
                 <label for="exposureSpinner">Exposure:</label>
                 <input id="exposureSpinner" type="number" min="100" max="20000" value=$exposure step="100">
-
+                <label for="framerateSpinner">Framerate:</label>
+                <input id="framerateSpinner" type="number" min="1" max="60" value=$framerate step="1">
+        
                 <!-- Video file input field -->
                 <input type="text" id="videoFile" name="videoFile" value=$record_filename  onchange="sendFilename(this.value)">
-            </div>
             <button id="recordButton">Start Recording</button>
-
+            </div>
         </div>
         <div id="video-container">
             <video autoplay muted id="stream"></video>
@@ -271,34 +292,62 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             const exposureSpinner = document.getElementById('exposureSpinner');
+            const framerateSpinner = document.getElementById('framerateSpinner');
 
             exposureSpinner.addEventListener('change', function() {
-                // const exposureValue = this.value;
-                let exposureValue = parseInt(this.value, 10);
-                if (isNaN(exposureValue)) return; // Exit if the value is not a number
+            let exposureValue = parseInt(this.value, 10);
+            if (isNaN(exposureValue)) return; // Exit if the value is not a number
 
-                // Clamp the value to ensure it's within the desired range
-                exposureValue = Math.max(100, Math.min(exposureValue, 20000));
-                this.value = exposureValue; // Update the input with the clamped value
-                fetch('/set-exposure', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ exposure: exposureValue }),
-                })
-                .then(response => {
-                    if (response.ok) {
-                        return response.json();
-                    }
-                    throw new Error('Network response was not ok.');
-                })
-                .then(data => {
-                    console.log('Success:', data);
-                })
-                .catch((error) => {
-                    console.error('Error:', error);
-                });
+            // Clamp the value to ensure it's within the desired range
+            exposureValue = Math.max(100, Math.min(exposureValue, 20000));
+            this.value = exposureValue; // Update the input with the clamped value
+            fetch('/set-exposure', {
+                method: 'POST',
+                headers: {
+                'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ exposure: exposureValue }),
+            })
+            .then(response => {
+                if (response.ok) {
+                return response.json();
+                }
+                throw new Error('Network response was not ok.');
+            })
+            .then(data => {
+                console.log('Success:', data);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+            });
+
+            framerateSpinner.addEventListener('change', function() {
+            let framerateValue = parseInt(this.value, 10);
+            if (isNaN(framerateValue)) return; // Exit if the value is not a number
+
+            // Clamp the value to ensure it's within the desired range
+            framerateValue = Math.max(1, Math.min(framerateValue, 30));
+            this.value = framerateValue; // Update the input with the clamped value
+            fetch('/set-framerate', {
+                method: 'POST',
+                headers: {
+                'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ framerate: framerateValue }),
+            })
+            .then(response => {
+                if (response.ok) {
+                return response.json();
+                }
+                throw new Error('Network response was not ok.');
+            })
+            .then(data => {
+                console.log('Success:', data);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
             });
         });
 
@@ -324,8 +373,8 @@
                 //this.context.fillRect(width / 2 - this.offset, 0, this.thickness, height);
                 //this.context.fillRect(0, height / 2 - this.offset, width, this.thickness);
 
-                this.calculateFps();
-                this.writeFpsText();
+                //this.calculateFps();
+                //this.writeFpsText();
             }
 
             calculateFps() {
@@ -341,7 +390,6 @@
 
                     let total = this.frameTimes.reduce((a, b) => a + b, 0);
                     this.fps = total / this.frameTimes.length;
-                    this.fps = 100 * this.frameTimes.length / total;
                 }
                 this.lastFrameTime = currentTime;
             }

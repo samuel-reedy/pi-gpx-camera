@@ -13,6 +13,7 @@ import tornado.gen
 from string import Template
 import io, os
 import socket
+import shutil
 try:
     # assert False
     from picamera2 import Picamera2, MappedArray
@@ -44,6 +45,8 @@ import math
 
 import argparse
 
+import numpy as np
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -58,7 +61,7 @@ class Config:
     record_filename = "transect-001"
     RESOLUTION = None  # set by params
     REC_FRAMERATE = None # set by params
-    CAM_FRAMERATE = 10 
+    CAM_FRAMERATE = 20
     JPG_QUALITY = None # set by params
     PORT = None # set by params
     mav_msg_GLOBAL_POSITION_INT = None 
@@ -75,6 +78,7 @@ except:
     logging.error("Error in Picamera2, disabling the camera")
     Config.RUN_CAMERA = False
 
+
 def set_exposure(exposure):
     if Config.RUN_CAMERA:
         # clip 100 to 20000
@@ -83,14 +87,21 @@ def set_exposure(exposure):
         picam2.set_controls({'ExposureTime': Config.cam_exposure})
         logging.debug(f"Set new exposure: {Config.cam_exposure}")
 
+def set_framerate(exposure):
+    if Config.RUN_CAMERA:
+        framerate = max(1, min(exposure, 30))
+        Config.CAM_FRAMERATE = framerate
+        picam2.set_controls({'FrameRate': Config.CAM_FRAMERATE})
+        logging.debug(f"Set new framerate: {Config.CAM_FRAMERATE}")
+
 def set_camera():
     if Config.RUN_CAMERA:
 
         resolution = [int(dim * Config.RESOLUTION) for dim in picam2.sensor_resolution]
         main_stream = {'format': 'BGR888', 'size': resolution}
-        # lores_stream = {"size": (640, 480)}
+        lores_stream = {"size": (640, 480)}
         # lores_stream = {"size": (1280, 960)}
-        lores_stream = {"size": (1920, 1080)}
+        # lores_stream = {"size": (1920, 1080)}
 
         logging.info(f"{main_stream = }")
         logging.info(f"{lores_stream = }")
@@ -102,28 +113,35 @@ def set_camera():
         # picam2.set_controls({"ExposureTime": 20000, "FrameRate": Config.CAM_FRAMERATE})
         picam2.set_controls({"AeExposureMode": 1, "FrameRate": Config.CAM_FRAMERATE})    # 1 = short https://libcamera.org/api-html/namespacelibcamera_1_1controls.html
         set_exposure(2000)
+        set_framerate(Config.CAM_FRAMERATE)
 
 
-        PRE_CALLBACK = False
+        PRE_CALLBACK = True
         if PRE_CALLBACK:
-            colour = (0,255, 0)
+            colour = (255, 0, 0)
             origin = (0, 30)
             font = cv2.FONT_HERSHEY_SIMPLEX
             scale = 1
             thickness = 2
-            def apply_timestamp(request):
 
+            def apply_timestamp(request):
                 with MappedArray(request, "main") as m:
                     # Calculate the width and height of the text box
                     (text_width, text_height) = cv2.getTextSize(str(Config.mav_msg_GLOBAL_POSITION_INT), font, scale, thickness)[0]
                     # Draw a black rectangle under the text
-                    cv2.rectangle(m.array, (0, 30 - text_height-5), (text_width, 40), (0, 0, 0), -1)
+                    cv2.rectangle(m.array, (0, 30 - text_height - 5), (text_width, 40), (0, 0, 0), -1)
                     cv2.putText(m.array, str(Config.mav_msg_GLOBAL_POSITION_INT), (0, 30), font, scale, colour, thickness)
                     # cv2.putText(m.array, 'RECORDING', (1700, 1050), font, scale, (255, 0, 0), 3)
 
+                    # Add camera settings to the overlay
+                    exposure_text = f"Exposure: {Config.cam_exposure}"
+                    framerate_text = f"FPS: {Config.CAM_FRAMERATE}"
+                    settings_text = f"{exposure_text}, {framerate_text}"
+                    (settings_text_width, settings_text_height) = cv2.getTextSize(settings_text, font, scale, thickness)[0]
+                    cv2.rectangle(m.array, (0, 0), (settings_text_width, settings_text_height + 10), (0, 0, 0), -1)
+                    cv2.putText(m.array, settings_text, (0, settings_text_height + 5), font, scale, colour, thickness)
 
-            picam2.pre_callback = apply_timestamp
-
+            picam2.post_callback = apply_timestamp
 
 
 
@@ -233,7 +251,7 @@ if Config.RUN_CAMERA:
         def setLoop(self, loop):
             self.loop = loop
 
-        def outputframe(self, frame, keyframe=True, timestamp=None):
+        def outputframe(self, frame, keyframe=True, timestamp=None):            
             self.buffer.write(frame)
             if self.loop is not None and wsHandler.hasConnections():
                 self.loop.add_callback(callback=wsHandler.broadcast, message=self.buffer.getvalue())
@@ -278,7 +296,7 @@ class indexHandler(tornado.web.RequestHandler):
         server_host = self.request.host.split(':')[0]  # Split to remove port if present
         serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
         centerHtml = templatize(getFile('index.html'), {'ip':serverIp, 'port':Config.PORT, \
-                                                        'fps':Config.framerate_js, 'record_filename':Config.record_filename, 'exposure': Config.cam_exposure, \
+                                                        'fps':Config.framerate_js, 'record_filename':Config.record_filename, 'exposure': Config.cam_exposure, 'framerate': Config.CAM_FRAMERATE,\
                                                             'isRecording': 'true' if Config.isRecording else 'false'})
         self.write(centerHtml)
 
@@ -384,6 +402,29 @@ class StatusHandler(tornado.web.RequestHandler):
     def update_status(cls, status):
         cls.status = status
 
+def move_file_to_complete(filename):
+    data_folder = os.path.abspath("../../data")
+
+    complete_folder = os.path.join(data_folder, "complete")
+    recording_folder = os.path.join(data_folder, "recording")
+
+    recording_path = os.path.join(recording_folder, f"{filename}.avi")
+    complete_path = os.path.join(complete_folder, f"{filename}.avi")
+    
+    if not os.path.exists(complete_folder):
+        os.makedirs(complete_folder)
+
+    try:
+        shutil.move(recording_path, complete_path)
+        logging.info(f"File {filename}.avi moved to complete folder.")
+    except FileNotFoundError:
+        logging.error(f"File {filename}.avi not found in data folder.")
+    except PermissionError as e:
+        logging.error(f"Permission denied while moving file {filename}.avi: {e}")
+    print(f"Recording path: {recording_path}")
+    print(f"Complete path: {complete_path}")
+
+
 class RecordHandler(tornado.web.RequestHandler):
     def post(self):
 
@@ -391,29 +432,9 @@ class RecordHandler(tornado.web.RequestHandler):
         if is_recording:
 
             # check for dir and create if needed 
-            if not os.path.exists("../../data"):
-                os.makedirs("../../data")
+            if not os.path.exists("../../data/recording/"):
+                os.makedirs("../../data/recording/")
             
-            # fn_gpx = f"../../data/{Config.record_filename}.gpx" if Config.mav_msg_GLOBAL_POSITION_INT else 'No position MAV messages found'
-            # fn_vid = f'../../data/{Config.record_filename}.avi' if Config.RUN_CAMERA else 'No Camera Found'
-            # if Config.mav_msg_GLOBAL_POSITION_INT is not None:
-            #     gpx = gpxpy.gpx.GPX()
-
-            #     # Create a new track in our GPX file
-            #     gpx_track = gpxpy.gpx.GPXTrack(name='transect', description='transect description')
-            #     gpx.tracks.append(gpx_track)
-
-            #     # Create first segment in our GPX track:
-            #     gpx_segment = gpxpy.gpx.GPXTrackSegment()
-            #     gpx_track.segments.append(gpx_segment)
-
-            #     msg = Config.mav_msg_GLOBAL_POSITION_INT
-            #     Config.rec_start_position = (msg.lat/1.0e7, msg.lon/1.0e7, msg.alt/1000.0)
-
-            # logging.info(f"Recording started to {fn_gpx} & {fn_vid}")
-
-
-
             Config.isRecording = True
             self.cap_que = queue.Queue(maxsize=2)
             self.jpg_que = queue.Queue(maxsize=2)
@@ -459,8 +480,8 @@ class RecordHandler(tornado.web.RequestHandler):
 
             # Define your recording logic in a function
             def record(record_filename):
-                fn_gpx = f"../../data/{record_filename}.gpx" if Config.mav_msg_GLOBAL_POSITION_INT else 'No position MAV messages found'
-                fn_vid = f'../../data/{record_filename}.avi' if Config.RUN_CAMERA else 'No Camera Found'
+                fn_gpx = f"../../data/recording{record_filename}.gpx" if Config.mav_msg_GLOBAL_POSITION_INT else 'No position MAV messages found'
+                fn_vid = f'../../data/recording{record_filename}.avi' if Config.RUN_CAMERA else 'No Camera Found'
                 if Config.mav_msg_GLOBAL_POSITION_INT is not None:
                     gpx = gpxpy.gpx.GPX()
 
@@ -567,6 +588,7 @@ class RecordHandler(tornado.web.RequestHandler):
             logging.info("Recording stopped")
             Config.isRecording = False
             Config.rec_start_position = None
+            move_file_to_complete(Config.record_filename)
             # self.thread.join()
 
 
@@ -595,6 +617,27 @@ class ExposureHandler(tornado.web.RequestHandler):
             logging.error(f"Error updating exposure: {e}")
             self.set_status(500)  # Internal Server Error
             self.write({"status": "error", "message": "Failed to update exposure."})
+        self.finish()
+
+
+class FramerateHandler(tornado.web.RequestHandler):
+    def post(self):
+        try:
+            # Assuming the framerate value is sent as a JSON object {"framerate": value}
+            framerate_data = json.loads(self.request.body)
+            new_framerate = framerate_data.get('framerate')
+
+            if new_framerate is not None:
+
+                set_framerate(new_framerate)
+                self.write({"status": "success", "message": "Framerate updated successfully."})
+            else:
+                self.set_status(400)  # Bad Request
+                self.write({"status": "error", "message": "Invalid framerate value."})
+        except Exception as e:
+            logging.error(f"Error updating framerate: {e}")
+            self.set_status(500)  # Internal Server Error
+            self.write({"status": "error", "message": "Failed to update framerate."})
         self.finish()
 
 class old_StatusHandler(tornado.web.RequestHandler):
@@ -758,7 +801,7 @@ def main():
           {Config.JPG_QUALITY = }, {Config.PORT = }, {Config.MAVPORT = }")
 
     set_camera()
-
+    
 
     # Create a new thread and start it
     mavlink_thread = threading.Thread(target=process_mavlink_data, daemon=True)
@@ -782,9 +825,8 @@ def main():
         (r"/filename", FilenameHandler),
         (r"/status/", StatusHandler),
         (r"/set-exposure", ExposureHandler),
-        # (r"/(.*)", indexHandler),
-        (r"/", indexHandler),    # this one is last so not to interfer with the above routes
-
+        (r"/set-framerate", FramerateHandler),  # Add this line for FramerateHandler
+        (r"/", indexHandler),    # this one is last so not to interfere with the above routes
     ]
 
 
@@ -807,8 +849,6 @@ def main():
 
         if Config.RUN_CAMERA:
             output = StreamingOutput()
-            # encoder = H264Encoder(repeat=True, framerate=framerate, qp=23)
-            # encoder = H264Encoder(repeat=True, framerate=15, bitrate=2000000)
             encoder = H264Encoder(repeat=True, framerate=Config.CAM_FRAMERATE, qp=20, iperiod=Config.CAM_FRAMERATE)
             encoder.output = output
             picam2.start_recording(encoder, output)
