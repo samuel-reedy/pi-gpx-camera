@@ -580,16 +580,39 @@ class RecordHandler(tornado.web.RequestHandler):
                 self.cap_thread.daemon = True
                 self.cap_thread.start()
 
-
-
-
-
         else:
             logging.info("Recording stopped")
             Config.isRecording = False
             Config.rec_start_position = None
             move_file_to_complete(Config.record_filename)
             # self.thread.join()
+
+def move_file_to_complete(filename):
+    data_folder = os.path.abspath("../../data")
+
+    complete_folder = os.path.join(data_folder, "complete")
+    recording_folder = os.path.join(data_folder, "recording")
+
+    recording_path = os.path.join(recording_folder, f"{filename}.avi")
+    complete_path = os.path.join(complete_folder, f"{filename}.avi")
+    
+    if not os.path.exists(complete_folder):
+        os.makedirs(complete_folder)
+
+    try:
+        if os.path.exists(complete_path):
+            i = 1
+            while os.path.exists(os.path.join(complete_folder, f"{filename}({i}).avi")):
+                i += 1
+            complete_path = os.path.join(complete_folder, f"{filename}({i}).avi")
+            logging.info(f"File {filename}.avi already exists in complete folder. Renaming to {filename}({i}).avi")
+        shutil.move(recording_path, complete_path)
+        logging.info(f"File {filename}.avi moved to complete folder.")
+    except FileNotFoundError:
+        logging.error(f"File {filename}.avi not found in data folder.")
+    except PermissionError as e:
+        logging.error(f"Permission denied while moving file {filename}.avi: {e}")
+
 
 
 
