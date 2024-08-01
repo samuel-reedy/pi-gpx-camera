@@ -36,6 +36,13 @@
             <canvas id="canvas"></canvas>  
         </div>
 
+        <div id="gauge-container">
+            <svg id="depth-gauge" width="100%" height="100%">
+            <circle id="ideal-depth" cx="50%" cy="50%" r="50"></circle>
+            <circle id="current-depth" cx="50%" cy="50%" r="50"></circle>
+            </svg>
+        </div>
+
         <div id="bottomBar">
             <div id="controls">
                 <div id="statusText"></div>
@@ -63,26 +70,37 @@
 
         // Crude way of setting the page state based on the sse json data sent at 1 FPS
         var source = new EventSource('/status/');
+        const currentDepthCircle = document.getElementById('current-depth');
+        const idealDepthCircle = document.getElementById('ideal-depth');
+        const idealDepth = 75; // Example ideal depth
+        idealDepthCircle.setAttribute('r', idealDepth);
+
+        function updateGauge(currentDepth) {
+            const currentRadius = Math.abs(idealDepth - currentDepth);
+            currentDepthCircle.setAttribute('r', currentRadius);
+        }
+
         source.onmessage = function(event) {
             var data = JSON.parse(event.data);
-            if (data.latlon) {
-                // var latLonAltitude = 'Latitude: ' + data.lat+', Longitude: ' + data.lon+ ', Altitude: ' + data.altitude;
-                document.getElementById('latLon').innerHTML = data.latlon;
+            if (data.latitude && data.longitude) {
+            var latLonAltitude = 'Latitude: ' + data.latitude + ', Longitude: ' + data.longitude + ', Altitude: ' + data.altitude;
+            document.getElementById('latLon').innerHTML = latLonAltitude;
             }
-            // // set the record button state based on the recording status
-            // isRecording = data.isRecording;
-            // document.getElementById('recordButton').textContent = isRecording ? 'Stop Recording' : 'Start Recording';
-            // // Update the background color based on the recording status
-            // recordButton.style.backgroundColor = isRecording ? 'red' : 'green';
+            // set the record button state based on the recording status
+            isRecording = data.isRecording;
+            document.getElementById('recordButton').textContent = isRecording ? 'Stop Recording' : 'Start Recording';
+            // Update the background color based on the recording status
+            recordButton.style.backgroundColor = isRecording ? 'red' : 'green';
             //filename
-            
             // document.getElementById('videoFile').value = data.record_filename;
 
             // Status text
-            // console.log(event.data);
-            document.getElementById('statusText').innerHTML = event.data;
-        };
+            document.getElementById('statusText').innerHTML = data.status;
+            
+            // Update the gauge
+            updateGauge(data.altitude * 100);
 
+        };
 
         
         var statusSource = new EventSource('/status/');
@@ -264,6 +282,9 @@
             recordButton.style.backgroundColor = isRecording ? 'red' : 'green';
 
         };
+
+        
+
     </script>
 </body>
 </html>

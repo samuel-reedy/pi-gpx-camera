@@ -361,7 +361,12 @@ class StatusHandler(tornado.web.RequestHandler):
                 altitude = msg.alt / 1000.0
                 lat = msg.lat / 1.0e7
                 lon = msg.lon / 1.0e7
-                data = {"latlon": f"lat: {lat}, lon: {lon}, altitude: {altitude}, Satellites: {n_satellites}"}
+                
+                data = {
+                    'altitude': altitude,
+                    'latitude': lat,
+                    'longitude': lon
+                }
             return data
         return None
     

@@ -151,3 +151,16 @@ body {
 #depth-gauge {
     transform: rotate(-90deg); /* Rotate to make the gauge start from the top */
 }
+
+#ideal-depth {
+    stroke: rgb(255, 255, 255);
+    fill: none;
+    stroke-width: 4px;
+    stroke-dasharray: 5px; /* Add dashed stroke */
+}
+
+#current-depth {
+    stroke: rgb(0, 255, 0);
+    fill: none;
+    stroke-width: 4px;
+}
