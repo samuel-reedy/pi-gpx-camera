@@ -84,7 +84,7 @@ body {
     font-family: Arial, sans-serif; /* Match font */
 }
 
-#controlSpinner {
+.controlSpinner {
     min-height: 20px;
     color: black;  /* Text color */
     font-weight: bold;  /* Bold text */
