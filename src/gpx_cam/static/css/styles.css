@@ -145,22 +145,24 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    height: 100%;
+    width: 100%;
 }
 
 #depth-gauge {
     transform: rotate(-90deg); /* Rotate to make the gauge start from the top */
 }
 
-#ideal-depth {
-    stroke: rgb(255, 255, 255);
+.gauge {
     fill: none;
     stroke-width: 4px;
+}
+
+#ideal-depth {
+    stroke: rgb(255, 255, 255, 0.75);
     stroke-dasharray: 5px; /* Add dashed stroke */
 }
 
 #current-depth {
-    stroke: rgb(0, 255, 0);
-    fill: none;
-    stroke-width: 4px;
+    stroke: rgb(0, 255, 0, 0.75);
 }

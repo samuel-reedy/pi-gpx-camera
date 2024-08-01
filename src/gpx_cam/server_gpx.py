@@ -114,7 +114,7 @@ def set_camera():
         set_framerate(Config.CAM_FRAMERATE)
 
 
-        PRE_CALLBACK = True
+        PRE_CALLBACK = False
         if PRE_CALLBACK:
             colour = (255, 0, 0)
             origin = (0, 30)
