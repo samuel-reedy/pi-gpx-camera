@@ -27,7 +27,8 @@
             </div>
             <div id="controls">
                 <input type="text" id="videoFile" name="videoFile" placeholder="Filename" onchange="sendFilename(this.value)">
-                <button id="recordButton">Start Recording</button>
+                <button id="recordButton">Start</button>
+                <button id="fileManagerButton" onclick="openFileManager()">File Manager</button>
             </div>
         </div>
 
@@ -94,7 +95,7 @@
             }
             // set the record button state based on the recording status
             isRecording = data.isRecording;
-            document.getElementById('recordButton').textContent = isRecording ? 'Stop Recording' : 'Start Recording';
+            document.getElementById('recordButton').textContent = isRecording ? 'Stop' : 'Start';
             // Update the background color based on the recording status
             recordButton.style.backgroundColor = isRecording ? 'red' : 'green';
             //filename
@@ -288,6 +289,10 @@
             recordButton.style.backgroundColor = isRecording ? 'red' : 'green';
 
         };
+
+        function openFileManager() {
+            window.open("http://192.168.2.3:8085", "_blank");
+        }
 
         
 

@@ -104,6 +104,17 @@ body {
     border-radius: 5px; /* Add border radius to create rounded corners */
 }
 
+#fileManagerButton {
+    background-color: rgb(33, 33, 33);
+    color: white;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap; /* Prevent text wrapping */
+    border-radius: 5px; /* Add border radius to create rounded corners */
+}
+
 #videoFile{ 
     min-height: 20px;
     color: black;  /* Text color */
