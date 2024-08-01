@@ -31,8 +31,6 @@ except:
 from pymavlink import mavutil
 import time
 import json
-import gpxpy
-import gpxpy.gpx
 
 from datetime import datetime
 import queue
@@ -480,26 +478,12 @@ class RecordHandler(tornado.web.RequestHandler):
 
             # Define your recording logic in a function
             def record(record_filename):
-                fn_gpx = f"../../data/recording/{record_filename}.gpx" if Config.mav_msg_GLOBAL_POSITION_INT else 'No position MAV messages found'
                 fn_vid = f'../../data/recording/{record_filename}.avi' if Config.RUN_CAMERA else 'No Camera Found'
-                if Config.mav_msg_GLOBAL_POSITION_INT is not None:
-                    gpx = gpxpy.gpx.GPX()
 
-                    # Create a new track in our GPX file
-                    gpx_track = gpxpy.gpx.GPXTrack(name='transect', description='transect description')
-                    gpx.tracks.append(gpx_track)
-
-                    # Create first segment in our GPX track:
-                    gpx_segment = gpxpy.gpx.GPXTrackSegment()
-                    gpx_track.segments.append(gpx_segment)
-
-                    msg = Config.mav_msg_GLOBAL_POSITION_INT
-                    Config.rec_start_position = (msg.lat/1.0e7, msg.lon/1.0e7, msg.alt/1000.0)
-
-                logging.info(f"Recording started to {fn_gpx} & {fn_vid}")
+                logging.info(f"Recording started to {fn_vid}")
 
                 logging.debug('Starting record Thread')
-                status = f'Recording to {fn_gpx} & {fn_vid}'
+                status = f'Recording to {fn_vid}'
 
                 StatusHandler.update_status(status)
                 quality = 90
@@ -511,16 +495,6 @@ class RecordHandler(tornado.web.RequestHandler):
                 start_time = time.time()
                 last_time = start_time
                 while Config.isRecording:
-                    if Config.mav_msg_GLOBAL_POSITION_INT is not None:
-                        msg = Config.mav_msg_GLOBAL_POSITION_INT
-                        altitude = msg.alt / 1000.0
-                        lat = msg.lat / 1.0e7
-                        lon = msg.lon/ 1.0e7
-                        n_satellites = Config.mav_satellites_visible
-                        str_n_sats = f'Satellites: {n_satellites}'
-                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), comment=str_n_sats, speed=n_satellites, symbol='Waypoint'))
-                        # todo add photo frame number
-
                     if Config.RUN_CAMERA:
                         try:
                             jpg = self.jpg_que.get(timeout=0.1)
@@ -550,18 +524,13 @@ class RecordHandler(tornado.web.RequestHandler):
                         StatusHandler.update_status(status)
                         last_time = time.time()
 
-                # save video and gpx
+                # save video
                 vid_status = fn_vid
-                gpx_status = fn_gpx
                 if Config.RUN_CAMERA:
                     output.stop()
                     vid_status = f'Video saved to {fn_vid}'
-                if Config.mav_msg_GLOBAL_POSITION_INT is not None:
-                    with open(fn_gpx, 'w') as f:
-                        f.write(gpx.to_xml())
-                        gpx_status = f'GPX saved to {fn_gpx}'
 
-                status = f'{gpx_status}:     {vid_status}'
+                status = f'{vid_status}'
 
                 StatusHandler.update_status(status)
 
@@ -595,7 +564,7 @@ def move_file_to_complete(filename):
 
     recording_path = os.path.join(recording_folder, f"{filename}.avi")
     complete_path = os.path.join(complete_folder, f"{filename}.avi")
-    
+
     if not os.path.exists(complete_folder):
         os.makedirs(complete_folder)
 
@@ -764,12 +733,17 @@ def process_mavlink_data():
     # Wait for the vehicle to send GPS_RAW_INT message
     time.sleep(1)
 
-    while True:
+    the_connection.mav.param_request_list_send(
+        the_connection.target_system, the_connection.target_component
+    )
 
+    while True:
+        time.sleep(0.01)
         try: 
             # Wait for a GPS_RAW_INT message with a timeout of 10 seconds
             msg = the_connection.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=10)
             Config.mav_msg_GLOBAL_POSITION_INT = msg
+
 
             msg = the_connection.recv_match(type='GPS_RAW_INT', blocking=True, timeout=10)
             Config.mav_satellites_visible = msg.satellites_visible
@@ -780,6 +754,8 @@ def process_mavlink_data():
                 logging.info('No GPS_RAW_INT message received within the timeout period')
         except:
             logging.error('Error while waiting for GPS_RAW_INT message')
+
+    
 
 
 def update_status_periodically():
@@ -830,6 +806,7 @@ def main():
     mavlink_thread = threading.Thread(target=process_mavlink_data, daemon=True)
     mavlink_thread.start()
 
+    static_dir = os.path.join(os.path.dirname(__file__), 'static')
     
     # directory_to_serve = os.path.join(os.path.dirname(__file__), 'static')
     # directory_to_serve = os.path.dirname(__file__)
@@ -837,18 +814,16 @@ def main():
 
     requestHandlers = [
         (r"/ws/", wsHandler),
-        # (r"/(.*)", indexHandler),
-        # (r"/", indexHandler),
         (r"/center", indexHandler),
         (r"/grid", gridHandler),
         (r"/focus", focusHandler),
         (r"/jmuxer.min.js", jmuxerHandler),
-        # (r"/sse/", SSEHandler),
         (r"/record", RecordHandler), 
         (r"/filename", FilenameHandler),
         (r"/status/", StatusHandler),
         (r"/set-exposure", ExposureHandler),
-        (r"/set-framerate", FramerateHandler),  # Add this line for FramerateHandler
+        (r"/set-framerate", FramerateHandler), 
+        (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": static_dir}), 
         (r"/", indexHandler),    # this one is last so not to interfere with the above routes
     ]
 

@@ -1,0 +1,153 @@
+/* css/styles.css */
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: rgb(33, 98, 172);
+    overflow: hidden; /* Prevent scroll bars */
+}
+
+#streamStage {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.video-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#stream {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#topBar {
+    display: flex;
+    position: fixed;
+    width: 100%;
+    top: 0;
+    left: 0;
+    background-color: rgb(25, 78, 139);
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+    max-height: 100px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px; /* Add internal gap between child elements */
+    box-sizing: border-box; /* Ensure padding is included in the total size */
+    z-index: 1; /* Bring the element forward */
+    padding: 5px;
+}
+
+#latLon {
+    color: rgb(255, 208, 1);
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    overflow: hidden; /* Hide any overflow content */
+    text-overflow: ellipsis; /* Add ellipsis for overflow text */
+    white-space: nowrap; /* Prevent text from wrapping */
+    font-size: 90%; /* Make the font 50% smaller */
+}
+
+#controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    background-color: rgba(0, 0, 0, 0.124);
+    border-radius: 10px;
+    padding: 10px;
+    height: 90%;
+}
+
+#controlText {
+    color: white; /* Text color */
+    display: flex; /* Aligns items in a row */
+    align-items: center; /* Centers items vertically */
+    gap: 10px; /* Adds space between the label and the spinner */
+    font-family: Arial, sans-serif; /* Match font */
+}
+
+#controlSpinner {
+    min-height: 20px;
+    color: black;  /* Text color */
+    font-weight: bold;  /* Bold text */
+    border: none;
+    border-radius: 5px; /* Add border radius to create rounded corners */
+    padding-left: 10px; /* Add padding to the left side of the text */
+}
+
+#recordButton {
+    background-color: green;
+    color: white;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap; /* Prevent text wrapping */
+    border-radius: 5px; /* Add border radius to create rounded corners */
+}
+
+#videoFile{ 
+    min-height: 20px;
+    color: black;  /* Text color */
+    font-weight: bold;  /* Bold text */
+    border: none;
+    border-radius: 5px; /* Add border radius to create rounded corners */
+    padding-left: 10px; /* Add padding to the left side of the text */
+}
+
+
+#bottomBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: rgb(25, 78, 139);
+    padding: 10px;
+    box-sizing: border-box;
+    z-index: 1;
+    box-shadow: 0px -4px 8px rgba(0, 0, 0, 0.5); /* Add bigger drop shadow */
+    flex-wrap: wrap; /* Allow items to wrap to the next line */
+    margin-top: 20px; /* Add margin at the top */
+    z-index: 1; /* Bring the element forward */
+}
+
+#statusText {
+    color: #ffff00;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    white-space: normal; /* Add this line to prevent line breaks */
+    overflow: visible; /* Add this line to hide overflowing text */
+}
+
+/* styles.css */
+#gauge-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+#depth-gauge {
+    transform: rotate(-90deg); /* Rotate to make the gauge start from the top */
+}

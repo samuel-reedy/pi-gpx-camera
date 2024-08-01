@@ -5,239 +5,51 @@
     <meta charset="utf-8">
     <title>Video Stream</title>
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #303030;
-        }
-
-        #streamStage {
-            /* position: fixed; */
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        #streamStage:before {
-            content: '';
-            box-sizing: border-box;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 2rem;
-            height: 2rem;
-            margin-top: -1rem;
-            margin-left: -1rem;
-        }
-
-        .video-container {
-            position: relative;
-            width: 640px; /* Specify the width */
-            height: 360px; /* Specify the height */
-        }
-
-        #stream, #canvas {
-            margin-top: 30px;
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-        /* #stream, #canvas { */
-            /* margin-top: 70px; */
-            /* padding-top: 5% !important;  */
-            /* max-height: calc(100% - 70px); */
-            /* max-height: 100%; */
-            /* max-width: 100%; */
-            /* margin: auto; */
-            /* position: absolute; */
-            /* display: block;   Makes each element take up the full width and stack vertically  */
-            /* margin: auto; */
-            /* top: 1;
-            left: 0;
-            bottom: 0;
-            right: 0;  */
-
-            /* max-height: calc(100% - 90px); */
-            /* width: 100% !important; */
-            /* padding-top: 5% !important;  */
-            /* height: 0% !important;  */
-        /* } */
-
-        #topBar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background-color: #161515;
-            padding: 5px;
-            box-sizing: border-box;
-            z-index: 1;
-        }
-
-        #latLon  {
-            color: rgb(255, 208, 1);
-            font-family: Arial, sans-serif;
-            font-weight: bold;
-        }
-
-        #exposureControl {
-            color: white; /* Text color */
-            display: flex; /* Aligns items in a row */
-            align-items: center; /* Centers items vertically */
-            gap: 10px; /* Adds space between the label and the spinner */
-        }
-
-        #exposureSpinner {
-            background-color: #161615; /* Match top bar background */
-            color: white; /* Text color */
-            font-family: Arial, sans-serif; /* Match font */
-            font-weight: bold; /* Bold text */
-            border: 1px solid #fff; /* White border */
-            padding: 5px; /* Padding */
-            margin-right: 10px; /* Space on the right */
-            width: 80px; /* Fixed width for consistency */
-            text-align: center; /* Center the text */
-            /* -moz-appearance: textfield; Removes spinner arrows from Firefox */
-        }
-
-        #framerateControl {
-            color: white; /* Text color */
-            display: flex; /* Aligns items in a row */
-            align-items: center; /* Centers items vertically */
-            gap: 10px; /* Adds space between the label and the spinner */
-        }
-
-        #framerateSpinner {
-            background-color: #161615; /* Match top bar background */
-            color: white; /* Text color */
-            font-family: Arial, sans-serif; /* Match font */
-            font-weight: bold; /* Bold text */
-            border: 1px solid #fff; /* White border */
-            padding: 5px; /* Padding */
-            margin-right: 10px; /* Space on the right */
-            width: 80px; /* Fixed width for consistency */
-            text-align: center; /* Center the text */
-            /* -moz-appearance: textfield; Removes spinner arrows from Firefox */
-        }
-/* 
-        label[for="exposureSpinner"] {
-            color: white;
-        } */
-
-
-        /* Removes spinner arrows from Webkit browsers like Chrome and Safari */
-        /* #exposureSpinner::-webkit-outer-spin-button,
-        #exposureSpinner::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        } */
-
-        #recordButton {
-            background-color: green;
-            color: white;
-            font-family: Arial, sans-serif;
-            font-weight: bold;
-            border: none;
-            padding: 5px 10px;
-            cursor: pointer;
-        }
-
-        #videoFile {
-            width: 300px;  
-            height: 20px;  
-            color: black;  /* Text color */
-            font-weight: bold;  /* Bold text */
-            font-size: 14px;  /* Increase font size */
-        }
-
-        #statusText {
-            position: absolute;
-            bottom: 0;
-            color: rgb(0, 255, 0);
-            font-family: Arial, sans-serif;
-            font-weight: bold;
-        }
-
-        /* #stream, #canvas { 
-            display: block;   Makes each element take up the full width and stack vertically  */
-            /* margin: auto;   Centers the elements if they don't take up the full container width  */
-       /* } */
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            #topBar {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            #videoFile {
-                width: 100%;  /* Full width on small screens */
-                height: 30px;  /* Adjust as needed */
-            }
-            #recordButton {
-                margin-top: 10px;
-                width: 100%;
-                text-align: center;
-            }
-
-            /* #stream, #canvas {
-                max-height: calc(100% - 90px);
-                width: 100% !important;
-                padding-top: 100% !important;
-                height: 0 !important;
-            } */
-        }
-
-        @media (max-width: 480px) {
-            #latLon {
-                font-size: 12px;
-            }
-
-            #recordButton {
-                padding: 8px 12px;
-                font-size: 12px;
-            }
-
-            #stream, #canvas {
-                max-height: calc(100% - 110px);
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/styles.css">
     <script src="/jmuxer.min.js"></script>
 </head>
 <body>
     <div id="streamStage">
+
         <div id="topBar">
-            <div id="latLon">Hello</div>
-            <div id="exposureControl">
-                <label for="exposureSpinner">Exposure:</label>
-                <input id="exposureSpinner" type="number" min="100" max="20000" value=$exposure step="100">
-                <label for="framerateSpinner">Framerate:</label>
-                <input id="framerateSpinner" type="number" min="1" max="60" value=$framerate step="1">
-        
-                <!-- Video file input field -->
-                <input type="text" id="videoFile" name="videoFile" value=$record_filename  onchange="sendFilename(this.value)">
-            <button id="recordButton">Start Recording</button>
+            <div id="controls">
+                <div id="latLon"></div>
+            </div>
+            <div id="controls">
+                <div id="controlText">
+                    <label for="exposureSpinner">EXPOSURE:</label>
+                    <input id="controlSpinner" type="number" min="100" max="20000" value=$exposure step="100">
+                </div>
+                <div id="controlText">
+                    <label for="framerateSpinner">FRAMERATE:</label>
+                    <input id="controlSpinner" type="number" min="1" max="30" value=$fps step="1">
+                </div>
+            </div>
+            <div id="controls">
+                <input type="text" id="videoFile" name="videoFile" value=$record_filename onchange="sendFilename(this.value)">
+                <button id="recordButton">Start Recording</button>
             </div>
         </div>
+
         <div id="video-container">
             <video autoplay muted id="stream"></video>
             <canvas id="canvas"></canvas>  
         </div>
-        <div id="statusText"></div>
+
+        <div id="bottomBar">
+            <div id="controls">
+                <div id="statusText"></div>
+            </div>
+            
+        </div>
+        
     </div>
 
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             var topBarHeight = document.getElementById('topBar').offsetHeight;
             var streamStage = document.getElementById('streamStage');
-            streamStage.style.margin = topBarHeight + 'px';
+            // streamStage.style.margin = topBarHeight + 'px';
             console.log("topBarHeight", topBarHeight)
         });
                 var isRecording = $isRecording;
@@ -281,7 +93,7 @@
 
         document.getElementById('recordButton').addEventListener('click', function() {
             isRecording = !isRecording;
-            this.textContent = isRecording ? 'Stop Recording' : 'Start Recording';
+            this.textContent = isRecording ? 'Stop' : 'Start';
             this.style.backgroundColor = isRecording ? 'red' : 'green';
 
             var xhr = new XMLHttpRequest();
@@ -448,7 +260,7 @@
             };
 
             // set record button state
-            document.getElementById('recordButton').textContent = isRecording ? 'Stop Recording' : 'Start Recording';
+            document.getElementById('recordButton').textContent = isRecording ? 'Stop' : 'Start';
             recordButton.style.backgroundColor = isRecording ? 'red' : 'green';
 
         };
