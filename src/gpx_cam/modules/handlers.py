@@ -59,10 +59,33 @@ class indexHandler(tornado.web.RequestHandler):
     def get(self):
         server_host = self.request.host.split(':')[0]  # Split to remove port if present
         serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
-        centerHtml = templatize(getFile('templates/index.html'), {'ip':serverIp, 'port':Config.PORT, \
+        
+        # Prepare variables for the template
+        template_vars = {
+            'ip': serverIp,
+            'port': Config.PORT,
+            'fps': Config.framerate_js,
+            'record_filename': Config.record_filename,
+            'exposure': Config.cam_exposure,
+            'framerate': Config.CAM_FRAMERATE,
+            'isRecording': 'true' if Config.isRecording else 'false'
+        }
+        
+        # Render the HTML with the variables
+        centerHtml = templatize(getFile('templates/index.html'), template_vars)
+        
+        # Write the rendered HTML to the response
+        self.write(centerHtml)
+
+class thumbnailHandler(tornado.web.RequestHandler):
+    def get(self):
+        server_host = self.request.host.split(':')[0]  # Split to remove port if present
+        serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
+        thumbnailHtml = templatize(getFile('templates/thumbnail.html'), {'ip':serverIp, 'port':Config.PORT, \
                                                         'fps':Config.framerate_js, 'record_filename':Config.record_filename, 'exposure': Config.cam_exposure, 'framerate': Config.CAM_FRAMERATE,\
                                                             'isRecording': 'true' if Config.isRecording else 'false'})
-        self.write(centerHtml)
+        self.write(thumbnailHtml)
+
 
 
 class jmuxerHandler(tornado.web.RequestHandler):

@@ -1,6 +1,7 @@
 /* css/styles.css */
 
-body {
+html, body {
+    height: 100%;
     margin: 0;
     padding: 0;
     background-color: rgb(33, 98, 172);
@@ -8,52 +9,50 @@ body {
 }
 
 #streamStage {
+    display: flex; /* Enables flexbox layout */
+    flex-direction: column; /* Stacks children vertically */
+    height: 100vh; /* Makes the container fill the viewport height */
+}
+
+#video-container {
+    flex: 1; 
+    padding: 20px;
+    object-fit: contain;
+    position: relative;
+}
+
+#stream, #canvas {
+    width: 100%;
+    height: 100%;
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    object-fit: contain; /* Ensures content fits within the dimensions without distortion */
 }
 
-.video-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-}
 
-#stream {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-}
 
-#canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-}
-
-#topBar {
+.bar {
     display: flex;
-    position: fixed;
-    width: 100%;
-    top: 0;
-    left: 0;
-    background-color: rgb(25, 78, 139);
-    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
-    max-height: 100px;
     justify-content: space-between;
     align-items: center;
-    gap: 10px; /* Add internal gap between child elements */
-    box-sizing: border-box; /* Ensure padding is included in the total size */
-    z-index: 1; /* Bring the element forward */
-    padding: 5px;
+    width: 100%;
+    background-color: rgb(25, 78, 139);
+    box-sizing: border-box;
+    max-height: 100px;
+    padding: 10px;
+}
+
+/* Specific styles for top bar */
+#topBar {
+    top: 0;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5); /* Add drop shadow */
+}
+
+/* Specific styles for bottom bar */
+#bottomBar {
+    bottom: 0;
+    box-shadow: 0px -4px 8px rgba(0, 0, 0, 0.5); /* Add bigger drop shadow */
 }
 
 #latLon {
@@ -124,25 +123,6 @@ body {
     padding-left: 10px; /* Add padding to the left side of the text */
 }
 
-
-#bottomBar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background-color: rgb(25, 78, 139);
-    padding: 10px;
-    box-sizing: border-box;
-    z-index: 1;
-    box-shadow: 0px -4px 8px rgba(0, 0, 0, 0.5); /* Add bigger drop shadow */
-    flex-wrap: wrap; /* Allow items to wrap to the next line */
-    margin-top: 20px; /* Add margin at the top */
-    z-index: 1; /* Bring the element forward */
-}
-
 #statusText {
     color: #ffff00;
     font-family: Arial, sans-serif;
@@ -151,22 +131,28 @@ body {
     overflow: visible; /* Add this line to hide overflowing text */
 }
 
-/* styles.css */
-#gauge-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
+#canvas-container {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
+    height: 100%;
 }
 
+/* Position the SVG gauges absolutely within the canvas container */
 #depth-gauge {
-    transform: rotate(-90deg); /* Rotate to make the gauge start from the top */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Allow clicks to pass through to the canvas */
+    z-index: 1;
 }
 
 .gauge {
     fill: none;
-    stroke-width: 4px;
+    stroke-width: 5;
 }
 
 #ideal-depth {
@@ -176,4 +162,12 @@ body {
 
 #current-depth {
     stroke: rgb(0, 255, 0, 0.75);
+}
+
+#recordingStatus {
+    color: #ff0000;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    white-space: normal; /* Add this line to prevent line breaks */
+    overflow: visible; /* Add this line to hide overflowing text */
 }

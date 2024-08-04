@@ -32,7 +32,7 @@ import argparse
 from .modules.classes.config import Config
 
 from .modules.handlers import (
-    wsHandler, indexHandler, jmuxerHandler,
+    wsHandler, indexHandler, jmuxerHandler, thumbnailHandler,
     RecordHandler, FilenameHandler, StatusHandler, ExposureHandler, FramerateHandler
 )
 
@@ -167,6 +167,7 @@ def main():
     requestHandlers = [
         (r"/ws/", wsHandler),
         (r"/center", indexHandler),
+        (r"/thumbnail", thumbnailHandler),
         (r"/jmuxer.min.js", jmuxerHandler),
         (r"/record", RecordHandler), 
         (r"/filename", FilenameHandler),
