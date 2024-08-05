@@ -39,7 +39,7 @@ html, body {
     width: 100%;
     background-color: rgb(25, 78, 139);
     box-sizing: border-box;
-    max-height: 100px;
+    height: 6%;
     padding: 10px;
 }
 
@@ -72,7 +72,7 @@ html, body {
     background-color: rgba(0, 0, 0, 0.124);
     border-radius: 10px;
     padding: 10px;
-    height: 90%;
+    height: 80%;
 }
 
 #controlText {

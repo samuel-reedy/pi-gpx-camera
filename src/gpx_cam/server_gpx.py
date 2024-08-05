@@ -82,30 +82,26 @@ def process_mavlink_data():
     the_connection.wait_heartbeat()
     logger.info("Heartbeat from system (system %u component %u)" % (the_connection.target_system, the_connection.target_system))
 
-    # Wait for the vehicle to send GPS_RAW_INT message
     time.sleep(1)
-
+    # Wait for the vehicle to send GPS_RAW_INT message
     the_connection.mav.param_request_list_send(
         the_connection.target_system, the_connection.target_component
     )
 
     while True:
         time.sleep(0.01)
-        try: 
-            # Wait for a GPS_RAW_INT message with a timeout of 10 seconds
-            msg = the_connection.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=10)
+        msg = the_connection.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=1)
+        if msg is not None:
             Config.mav_msg_GLOBAL_POSITION_INT = msg
 
-
-            msg = the_connection.recv_match(type='GPS_RAW_INT', blocking=True, timeout=10)
+        msg = the_connection.recv_match(type='GPS_RAW_INT', blocking=True, timeout=1)
+        if msg is not None:
             Config.mav_satellites_visible = msg.satellites_visible
 
-            if msg is not None:
-                pass
-            else:
-                logger.info('No GPS_RAW_INT message received within the timeout period')
-        except:
-            logger.error('Error while waiting for GPS_RAW_INT message')
+        if msg is None:
+            logger.info('No GPS_RAW_INT message received within the timeout period')
+        else:
+            pass
 
     
 
@@ -113,14 +109,10 @@ def process_mavlink_data():
 def update_status_periodically():
 
     while True:
-        # Example: Update the status with a new value
-        resolution = [int(dim * Config.RESOLUTION) for dim in picam2.sensor_resolution] if Config.RUN_CAMERA else [0, 0]
-        StatusHandler.update_status(f'Resolution = {resolution}, record framerate = {Config.REC_FRAMERATE}, JPG Quality = {Config.JPG_QUALITY}')
-        time.sleep(1)  # Update status every 1 seconds
-        for i in range(10):
-            md = picam2.capture_metadata()
-            StatusHandler.update_status(f'ExposureTime:{md["ExposureTime"]}, AnalogueGain: {md["AnalogueGain"]}, DigitalGain: {md["DigitalGain"]}')
-            time.sleep(1)  # Update status every 1 seconds
+        md = picam2.capture_metadata()
+        StatusHandler.update_status(f'ExposureTime:{md["ExposureTime"]}, AnalogueGain: {md["AnalogueGain"]}, DigitalGain: {md["DigitalGain"]}')
+        time.sleep(0.1)  # Update status every 1 seconds
+            
 
 loop = None
 KEYBOARD = False
