@@ -18,7 +18,7 @@ window.onload = function() {
         node: 'stream',
         mode: 'video',
         flushingTime: 0,
-        fps: document.getElementById('framerateSpinner').value,
+        fps: 20,
         debug: false
     });
 

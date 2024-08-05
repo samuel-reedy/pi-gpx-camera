@@ -32,8 +32,8 @@ import argparse
 from .modules.classes.config import Config
 
 from .modules.handlers import (
-    wsHandler, indexHandler, jmuxerHandler, thumbnailHandler,
-    RecordHandler, FilenameHandler, StatusHandler, ExposureHandler, FramerateHandler
+    wsHandler, indexHandler, jmuxerHandler, thumbnailHandler, parametersHandler, GaugeHandler,
+    RecordHandler, FilenameHandler, StatusHandler, ExposureHandler, FramerateHandler, SettingsHandler
 )
 
 from .modules.utils import (
@@ -41,6 +41,7 @@ from .modules.utils import (
 )
 
 from .modules.classes.streamingOutput import StreamingOutput
+from .modules.classes.gauge import Gauge
 
 
 
@@ -143,7 +144,7 @@ def main():
     logger.info(f"{Config.RESOLUTION = }, {Config.REC_FRAMERATE = }, {Config.CAM_FRAMERATE = }, \
           {Config.JPG_QUALITY = }, {Config.PORT = }, {Config.MAVPORT = }")
 
-    set_camera(picam2)
+    set_camera(picam2, Config.STREAM_RESOLUTION)
     
 
     # Create a new thread and start it
@@ -160,17 +161,21 @@ def main():
         (r"/ws/", wsHandler),
         (r"/center", indexHandler),
         (r"/thumbnail", thumbnailHandler),
+        (r"/parameters", parametersHandler),
         (r"/jmuxer.min.js", jmuxerHandler),
         (r"/record", RecordHandler), 
         (r"/filename", FilenameHandler),
         (r"/status/", StatusHandler),
         (r"/set-exposure", ExposureHandler),
         (r"/set-framerate", FramerateHandler), 
+        (r"/gauge", GaugeHandler), 
+        (r"/settings", SettingsHandler),
         (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": static_dir}), 
         (r"/", indexHandler),    # this one is last so not to interfere with the above routes
     ]
 
 
+    gauge = Gauge();
 
     # Start the status update thread
     status_update_thread = threading.Thread(target=update_status_periodically)
@@ -194,7 +199,7 @@ def main():
             encoder.output = output
             picam2.start_recording(encoder, output)
 
-        application = tornado.web.Application(requestHandlers, picam2=picam2)
+        application = tornado.web.Application(requestHandlers, picam2=picam2, gauge=gauge)
         try:
             application.listen(Config.PORT)
         except Exception as e:

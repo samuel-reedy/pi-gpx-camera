@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Parameters</title>
+    <style>
+        body {
+            background-color: #282C34;
+        }
+        .parameters-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 100%;
+            padding: 50px;
+        }
+        .parameter {
+            display: flex;
+            justify-content: space-between;
+        }
+        .parameter {
+            font-family: Arial, sans-serif;
+        }
+        .parameter label {
+            font-weight: bold;
+            color: rgb(171, 178, 191);
+        }
+        .parameter span {
+            font-weight: normal;
+            color: rgb(226, 229, 236);
+        }
+    </style>
+</head>
+<body>
+    <input type="hidden" id="ip" value="$ip">
+    <input type="hidden" id="port" value="$port">
+    <div id="streamStage">
+        <div class="parameters-container">
+            <form id="parametersForm">
+                <div class="parameter">
+                    <label>EXPOSURE:</label>
+                    <input type="text" id="cam_exposure" value="$cam_exposure">
+                </div>
+                <div class="parameter">
+                    <label>STREAM FRAMERATE:</label>
+                    <input type="text" id="cam_framerate" value="$cam_framerate">
+                </div>
+                <div class="parameter">
+                    <label>STREAM RESOLUTION:</label>
+                    <span id="stream_resolution">$stream_resolution</span>
+                </div>
+                <div class="parameter">
+                    <label>RECORDING FRAMERATE:</label>
+                    <input type="text" id="rec_framerate" value="$rec_framerate">
+                </div>
+                <div class="parameter">
+                    <label>IP:</label>
+                    <span id="ip">$ip</span>
+                </div>
+                <div class="parameter">
+                    <label>PORT:</label>
+                    <span id="port">$port</span>
+                </div>
+                <div class="parameter">
+                    <label>WS URL:</label>
+                    <span id="wsURL">$wsURL</span>
+                </div>
+                <div class="parameter">
+                    <label>CAM TYPE:</label>
+                    <span id="cam_type">$cam_type</span>
+                </div>
+                <div class="parameter">
+                    <label>RUN CAMERA:</label>
+                    <span id="run_camera">$run_camera</span>
+                </div>
+                <div class="parameter">
+                    <label>IS RECORDING:</label>
+                    <span id="is_recording">$is_recording</span>
+                </div>
+                <div class="parameter">
+                    <label>REC START POSITION:</label>
+                    <span id="rec_start_position">$rec_start_position</span>
+                </div>
+                <div class="parameter">
+                    <label>RECORD FILENAME:</label>
+                    <input type="text" id="record_filename" value="$record_filename">
+                </div>
+                <div class="parameter">
+                    <label>RESOLUTION:</label>
+                    <input type="text" id="resolution" value="$resolution">
+                </div>
+                <div class="parameter">
+                    <label>JPG QUALITY:</label>
+                    <input type="text" id="jpg_quality" value="$jpg_quality">
+                </div>
+                <div class="parameter">
+                    <label>LAT:</label>
+                    <span id="lat">$lat</span>
+                </div>
+                <div class="parameter">
+                    <label>LON:</label>
+                    <span id="lon">$lon</span>
+                </div>
+                <div class="parameter">
+                    <label>ALT:</label>
+                    <span id="alt">$alt</span>
+                </div>
+                <div class="parameter">
+                    <label>RELATIVE ALT:</label>
+                    <span id="relative_alt">$relative_alt</span>
+                </div>
+                <div class="parameter">
+                    <label>VX:</label>
+                    <span id="vx">$vx</span>
+                </div>
+                <div class="parameter">
+                    <label>VY:</label>
+                    <span id="vy">$vy</span>
+                </div>
+                <div class="parameter">
+                    <label>VZ:</label>
+                    <span id="vz">$vz</span>
+                </div>
+                <div class="parameter">
+                    <label>HDG:</label>
+                    <span id="hdg">$hdg</span>
+                </div>
+                <div class="parameter">
+                    <label>MAV SATELLITES VISIBLE:</label>
+                    <span id="mav_satellites_visible">$mav_satellites_visible</span>
+                </div>
+                <div class="parameter">
+                    <label>FRAMERATE JS:</label>
+                    <span id="framerate_js">$framerate_js</span>
+                </div>
+                <div class="parameter">
+                    <label>Gauge Sensitivity:</label>
+                    <input type="text" id="gauge_sensitivity" value="$gauge_sensitivity">
+                </div>
+                <div class="parameter">
+                    <label>Gauge ideal depth:</label>
+                    <input type="text" id="gauge_ideal_depth" value="$gauge_ideal_depth">
+                </div>
+                <div class="parameter">
+                    <button type="submit">Update Parameters</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("parametersForm").addEventListener("submit", function(event) {
+            event.preventDefault(); // Prevent form submission
+
+            // Create JSON object from form inputs
+            var data = {
+                cam_exposure: document.getElementById("cam_exposure").value,
+                cam_framerate: document.getElementById("cam_framerate").value,
+                rec_framerate: document.getElementById("rec_framerate").value,
+                record_filename: document.getElementById("record_filename").value,
+                resolution: document.getElementById("resolution").value,
+                jpg_quality: document.getElementById("jpg_quality").value,
+                gauge_sensitivity: document.getElementById("gauge_sensitivity").value,
+                gauge_ideal_depth: document.getElementById("gauge_ideal_depth").value
+            };
+
+            // Send JSON data to /settings endpoint
+            fetch("/settings", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Settings updated:", data);
+                // Handle response from server if needed
+            })
+            .catch(error => {
+                console.error("Error updating settings:", error);
+                // Handle error if needed
+            });
+        });
+    </script>
+</body>
+</html>

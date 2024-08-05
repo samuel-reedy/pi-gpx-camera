@@ -18,6 +18,7 @@ from .utils import (
     templatize, getFile, set_exposure, set_framerate, set_camera, move_file_to_complete
 )
 from .classes.config import Config
+from .classes.gauge import Gauge
 from .logging import logger
 
 from .classes.ffmpegOutput import FfmpegOutput
@@ -60,7 +61,6 @@ class indexHandler(tornado.web.RequestHandler):
         server_host = self.request.host.split(':')[0]  # Split to remove port if present
         serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
         
-        # Prepare variables for the template
         template_vars = {
             'ip': serverIp,
             'port': Config.PORT,
@@ -71,21 +71,74 @@ class indexHandler(tornado.web.RequestHandler):
             'isRecording': 'true' if Config.isRecording else 'false'
         }
         
-        # Render the HTML with the variables
         centerHtml = templatize(getFile('templates/index.html'), template_vars)
-        
-        # Write the rendered HTML to the response
         self.write(centerHtml)
 
 class thumbnailHandler(tornado.web.RequestHandler):
     def get(self):
         server_host = self.request.host.split(':')[0]  # Split to remove port if present
         serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
-        thumbnailHtml = templatize(getFile('templates/thumbnail.html'), {'ip':serverIp, 'port':Config.PORT, \
-                                                        'fps':Config.framerate_js, 'record_filename':Config.record_filename, 'exposure': Config.cam_exposure, 'framerate': Config.CAM_FRAMERATE,\
-                                                            'isRecording': 'true' if Config.isRecording else 'false'})
+        
+        template_vars = {
+            'ip': serverIp,
+            'port': Config.PORT,
+            'fps': Config.framerate_js,
+            'record_filename': Config.record_filename,
+            'exposure': Config.cam_exposure,
+            'framerate': Config.CAM_FRAMERATE,
+            'isRecording': 'true' if Config.isRecording else 'false'
+        }
+        
+
+        thumbnailHtml = templatize(getFile('templates/thumbnail.html'), template_vars)
         self.write(thumbnailHtml)
 
+class parametersHandler(tornado.web.RequestHandler):
+    def get(self):
+        server_host = self.request.host.split(':')[0]  # Split to remove port if present
+        serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
+        
+        # Extract relevant variables from Config
+        lat = Config.mav_msg_GLOBAL_POSITION_INT.lat / 1.0e7
+        lon = Config.mav_msg_GLOBAL_POSITION_INT.lon / 1.0e7
+        alt = Config.mav_msg_GLOBAL_POSITION_INT.alt / 1000
+        relative_alt = Config.mav_msg_GLOBAL_POSITION_INT.relative_alt / 1000
+        vx = Config.mav_msg_GLOBAL_POSITION_INT.vx
+        vy = Config.mav_msg_GLOBAL_POSITION_INT.vy
+        vz = Config.mav_msg_GLOBAL_POSITION_INT.vz
+        hdg = Config.mav_msg_GLOBAL_POSITION_INT.hdg / 1000
+
+        template_vars = {
+            'ip': serverIp,
+            'port': Config.PORT,
+            'wsURL': Config.wsURL,
+            'cam_type': Config.CAM_TYPE,
+            'run_camera': Config.RUN_CAMERA,
+            'is_recording': Config.isRecording,
+            'rec_start_position': Config.rec_start_position,
+            'record_filename': Config.record_filename,
+            'resolution': Config.RESOLUTION,
+            'rec_framerate': Config.REC_FRAMERATE,
+            'cam_framerate': Config.CAM_FRAMERATE,
+            'jpg_quality': Config.JPG_QUALITY,
+            'lat': lat,
+            'lon': lon,
+            'alt': alt,
+            'relative_alt': relative_alt,
+            'vx': vx,
+            'vy': vy,
+            'vz': vz,
+            'hdg': hdg,
+            'mav_satellites_visible': Config.mav_satellites_visible,
+            'framerate_js': Config.framerate_js,
+            'cam_exposure': Config.cam_exposure,
+            'stream_resolution': Config.STREAM_RESOLUTION,
+            'gauge_sensitivity': Gauge.sensitivity,
+            'gauge_ideal_depth': Gauge.ideal_depth
+        }
+
+        parametersHtml = templatize(getFile('templates/parameters.html'), template_vars)
+        self.write(parametersHtml)
 
 
 class jmuxerHandler(tornado.web.RequestHandler):
@@ -174,7 +227,7 @@ class StatusHandler(tornado.web.RequestHandler):
                     logger.warning("Error in StatusHandler", e)
                     pass
 
-            await tornado.gen.sleep(1)  # Wait for 1 second
+            await tornado.gen.sleep(0.2)  # Wait for 1 second
 
     @classmethod
     def update_status(cls, status):
@@ -366,6 +419,37 @@ class ExposureHandler(tornado.web.RequestHandler):
             self.write({"status": "error", "message": "Failed to update exposure."})
         self.finish()
 
+class GaugeHandler(tornado.web.RequestHandler):
+    def post(self):
+        try:
+            # Assuming the gauge parameters are sent as a JSON object {"sensitivity": value, "ideal_depth": value}
+            gauge_data = json.loads(self.request.body)
+            sensitivity = gauge_data.get('sensitivity')
+            ideal_depth = gauge_data.get('ideal_depth')
+            gauge = self.application.settings['gauge']
+
+            if sensitivity is not None:
+                gauge.set_sensitivity(sensitivity)
+            if ideal_depth is not None:
+                gauge.set_ideal_depth(ideal_depth)
+
+            self.write({"status": "success", "message": "Gauge parameters updated successfully."})
+        except Exception as e:
+            logger.error(f"Error updating gauge parameters: {e}")
+            self.set_status(500)  # Internal Server Error
+            self.write({"status": "error", "message": "Failed to update gauge parameters."})
+        self.finish()
+
+    def get(self):
+        try:
+            gauge = self.application.settings['gauge']
+            self.write({"status": "success", "data": gauge.get_parameters()})
+        except Exception as e:
+            logger.error(f"Error retrieving gauge parameters: {e}")
+            self.set_status(500)  # Internal Server Error
+            self.write({"status": "error", "message": "Failed to retrieve gauge parameters."})
+        self.finish()
+
 
 class FramerateHandler(tornado.web.RequestHandler):
     def post(self):
@@ -387,6 +471,56 @@ class FramerateHandler(tornado.web.RequestHandler):
             self.set_status(500)  # Internal Server Error
             self.write({"status": "error", "message": "Failed to update framerate."})
         self.finish()
+
+class SettingsHandler(tornado.web.RequestHandler):
+    def post(self):
+        try:
+            logger.info("Received request: %s", self.request.body)
+
+            data = json.loads(self.request.body)
+
+            picam2 = self.application.settings['picam2']
+
+
+            record_filename = data.get('record_filename')
+            resolution = float(data.get('resolution', 1.0))
+            jpg_quality = int(data.get('jpg_quality', 95))
+            cam_exposure = int(data.get('cam_exposure', 2000))
+            cam_framerate = int(data.get('cam_framerate', 20))
+            rec_framerate = int(data.get('rec_framerate', 2))
+
+            gauge_sensitivity = int(data.get('gauge_sensitivity', 20))
+            gauge_ideal_depth = float(data.get('gauge_ideal_depth', -1))
+
+            if cam_exposure is not None:
+                set_exposure(cam_exposure, picam2)
+
+            if cam_framerate is not None:
+                set_framerate(cam_framerate, picam2)
+
+            if rec_framerate is not None:
+                Config.rec_framerate = rec_framerate
+
+            if record_filename is not None:
+                Config.record_filename = record_filename
+
+            if resolution is not None:
+                Config.resolution = resolution
+
+            if jpg_quality is not None:
+                Config.jpg_quality = jpg_quality
+
+            if gauge_sensitivity is not None:
+                Gauge.sensitivity = gauge_sensitivity
+
+            if gauge_ideal_depth is not None:
+                Gauge.ideal_depth = gauge_ideal_depth
+
+            self.write({"status": "success", "message": "Settings updated"})
+        except Exception as e:
+            logger.error("Error processing request: %s", str(e))
+            self.set_status(400)
+            self.write({"status": "error", "message": str(e)})
 
 class old_StatusHandler(tornado.web.RequestHandler):
     clients = set()

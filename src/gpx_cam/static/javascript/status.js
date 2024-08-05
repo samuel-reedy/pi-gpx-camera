@@ -15,6 +15,4 @@ source.onmessage = function(event) {
     if (statusTextElement) {
         statusTextElement.innerHTML = data.status;
     }
-
-    updateGauge(data.altitude);
 };

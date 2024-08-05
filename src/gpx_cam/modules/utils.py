@@ -40,12 +40,12 @@ def set_framerate(exposure, cam):
         cam.set_controls({'FrameRate': Config.CAM_FRAMERATE})
         logger.debug(f"Set new framerate: {Config.CAM_FRAMERATE}")
 
-def set_camera(cam):
+def set_camera(cam, stream_resolution):
     if Config.RUN_CAMERA:
 
         resolution = [int(dim * Config.RESOLUTION) for dim in cam.sensor_resolution]
         main_stream = {'format': 'BGR888', 'size': resolution}
-        lores_stream = {"size": (640, 480)}
+        lores_stream = {"size": (stream_resolution["width"], stream_resolution["height"])}
         # lores_stream = {"size": (1280, 960)}
         # lores_stream = {"size": (1920, 1080)}
 

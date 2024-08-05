@@ -8,7 +8,10 @@ class Config:
     RESOLUTION = None  # set by params
     REC_FRAMERATE = None # set by params
     CAM_FRAMERATE = 20
-    JPG_QUALITY = None # set by params
+    STREAM_RESOLUTION = {
+        "width": 640,
+        "height": 480
+    }
     PORT = None # set by params
     mav_msg_GLOBAL_POSITION_INT = None 
     mav_satellites_visible = 0
