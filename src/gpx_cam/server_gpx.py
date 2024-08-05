@@ -32,7 +32,7 @@ import argparse
 from .modules.classes.config import Config
 
 from .modules.handlers import (
-    wsHandler, indexHandler, jmuxerHandler, thumbnailHandler, parametersHandler, GaugeHandler,
+    wsHandler, indexHandler, jmuxerHandler, thumbnailHandler, parametersHandler,
     RecordHandler, FilenameHandler, StatusHandler, ExposureHandler, FramerateHandler, SettingsHandler
 )
 
@@ -157,6 +157,8 @@ def main():
     # directory_to_serve = os.path.dirname(__file__)
     # directory_to_serve = '/static'
 
+    gauge = Gauge();
+
     requestHandlers = [
         (r"/ws/", wsHandler),
         (r"/center", indexHandler),
@@ -168,14 +170,13 @@ def main():
         (r"/status/", StatusHandler),
         (r"/set-exposure", ExposureHandler),
         (r"/set-framerate", FramerateHandler), 
-        (r"/gauge", GaugeHandler), 
         (r"/settings", SettingsHandler),
         (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": static_dir}), 
         (r"/", indexHandler),    # this one is last so not to interfere with the above routes
     ]
 
 
-    gauge = Gauge();
+    
 
     # Start the status update thread
     status_update_thread = threading.Thread(target=update_status_periodically)

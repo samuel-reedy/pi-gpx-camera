@@ -15,7 +15,7 @@ import simplejpeg
 
 
 from .utils import (
-    templatize, getFile, set_exposure, set_framerate, set_camera, move_file_to_complete
+    templatize, getFile, set_exposure, set_framerate, set_camera, move_file_to_complete, move_file_to_complete
 )
 from .classes.config import Config
 from .classes.gauge import Gauge
@@ -133,8 +133,10 @@ class parametersHandler(tornado.web.RequestHandler):
             'framerate_js': Config.framerate_js,
             'cam_exposure': Config.cam_exposure,
             'stream_resolution': Config.STREAM_RESOLUTION,
-            'gauge_sensitivity': Gauge.sensitivity,
-            'gauge_ideal_depth': Gauge.ideal_depth
+            'ideal_depth': Gauge.ideal_depth,
+            'min_radius': Gauge.min_radius,
+            'max_radius': Gauge.max_radius,
+            'max_depth_difference': Gauge.max_depth_difference
         }
 
         parametersHtml = templatize(getFile('templates/parameters.html'), template_vars)
@@ -233,27 +235,7 @@ class StatusHandler(tornado.web.RequestHandler):
     def update_status(cls, status):
         cls.status = status
 
-def move_file_to_complete(filename):
-    data_folder = os.path.abspath("../../data")
 
-    complete_folder = os.path.join(data_folder, "complete")
-    recording_folder = os.path.join(data_folder, "recording")
-
-    recording_path = os.path.join(recording_folder, f"{filename}.avi")
-    complete_path = os.path.join(complete_folder, f"{filename}.avi")
-    
-    if not os.path.exists(complete_folder):
-        os.makedirs(complete_folder)
-
-    try:
-        shutil.move(recording_path, complete_path)
-        logger.info(f"File {filename}.avi moved to complete folder.")
-    except FileNotFoundError:
-        logger.error(f"File {filename}.avi not found in data folder.")
-    except PermissionError as e:
-        logger.error(f"Permission denied while moving file {filename}.avi: {e}")
-    print(f"Recording path: {recording_path}")
-    print(f"Complete path: {complete_path}")
 
 
 class RecordHandler(tornado.web.RequestHandler):
@@ -419,37 +401,6 @@ class ExposureHandler(tornado.web.RequestHandler):
             self.write({"status": "error", "message": "Failed to update exposure."})
         self.finish()
 
-class GaugeHandler(tornado.web.RequestHandler):
-    def post(self):
-        try:
-            # Assuming the gauge parameters are sent as a JSON object {"sensitivity": value, "ideal_depth": value}
-            gauge_data = json.loads(self.request.body)
-            sensitivity = gauge_data.get('sensitivity')
-            ideal_depth = gauge_data.get('ideal_depth')
-            gauge = self.application.settings['gauge']
-
-            if sensitivity is not None:
-                gauge.set_sensitivity(sensitivity)
-            if ideal_depth is not None:
-                gauge.set_ideal_depth(ideal_depth)
-
-            self.write({"status": "success", "message": "Gauge parameters updated successfully."})
-        except Exception as e:
-            logger.error(f"Error updating gauge parameters: {e}")
-            self.set_status(500)  # Internal Server Error
-            self.write({"status": "error", "message": "Failed to update gauge parameters."})
-        self.finish()
-
-    def get(self):
-        try:
-            gauge = self.application.settings['gauge']
-            self.write({"status": "success", "data": gauge.get_parameters()})
-        except Exception as e:
-            logger.error(f"Error retrieving gauge parameters: {e}")
-            self.set_status(500)  # Internal Server Error
-            self.write({"status": "error", "message": "Failed to retrieve gauge parameters."})
-        self.finish()
-
 
 class FramerateHandler(tornado.web.RequestHandler):
     def post(self):
@@ -472,6 +423,8 @@ class FramerateHandler(tornado.web.RequestHandler):
             self.write({"status": "error", "message": "Failed to update framerate."})
         self.finish()
 
+
+
 class SettingsHandler(tornado.web.RequestHandler):
     def post(self):
         try:
@@ -481,7 +434,6 @@ class SettingsHandler(tornado.web.RequestHandler):
 
             picam2 = self.application.settings['picam2']
 
-
             record_filename = data.get('record_filename')
             resolution = float(data.get('resolution', 1.0))
             jpg_quality = int(data.get('jpg_quality', 95))
@@ -489,8 +441,10 @@ class SettingsHandler(tornado.web.RequestHandler):
             cam_framerate = int(data.get('cam_framerate', 20))
             rec_framerate = int(data.get('rec_framerate', 2))
 
-            gauge_sensitivity = int(data.get('gauge_sensitivity', 20))
-            gauge_ideal_depth = float(data.get('gauge_ideal_depth', -1))
+            ideal_depth = float(data.get('ideal_depth', -1))
+            min_radius = int(data.get('min_radius', 20))
+            max_radius = int(data.get('max_radius', 80))
+            max_depth_difference = int(data.get('max_depth_difference', 3))
 
             if cam_exposure is not None:
                 set_exposure(cam_exposure, picam2)
@@ -510,17 +464,42 @@ class SettingsHandler(tornado.web.RequestHandler):
             if jpg_quality is not None:
                 Config.jpg_quality = jpg_quality
 
-            if gauge_sensitivity is not None:
-                Gauge.sensitivity = gauge_sensitivity
+            if ideal_depth is not None:
+                Gauge.ideal_depth = ideal_depth
 
-            if gauge_ideal_depth is not None:
-                Gauge.ideal_depth = gauge_ideal_depth
+            if min_radius is not None:
+                Gauge.min_radius = min_radius
+
+            if max_radius is not None:
+                Gauge.max_radius = max_radius
+
+            if max_depth_difference is not None:
+                Gauge.max_depth_difference = max_depth_difference
 
             self.write({"status": "success", "message": "Settings updated"})
         except Exception as e:
             logger.error("Error processing request: %s", str(e))
             self.set_status(400)
             self.write({"status": "error", "message": str(e)})
+        self.finish()
+
+    def get(self):
+        try:
+            gauge = self.application.settings['gauge']
+            self.write({
+                "status": "success",
+                "data": {
+                    "ideal_depth": gauge.ideal_depth,
+                    "min_radius": gauge.min_radius,
+                    "max_radius": gauge.max_radius,
+                    "max_depth_difference": gauge.max_depth_difference
+                }
+            })
+        except Exception as e:
+            logger.error(f"Error retrieving gauge parameters: {e}")
+            self.set_status(500)  # Internal Server Error
+            self.write({"status": "error", "message": "Failed to retrieve gauge parameters."})
+        self.finish()
 
 class old_StatusHandler(tornado.web.RequestHandler):
     clients = set()

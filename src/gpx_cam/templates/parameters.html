@@ -134,12 +134,20 @@
                     <span id="framerate_js">$framerate_js</span>
                 </div>
                 <div class="parameter">
-                    <label>Gauge Sensitivity:</label>
-                    <input type="text" id="gauge_sensitivity" value="$gauge_sensitivity">
+                    <label>Gauge ideal depth:</label>
+                    <input type="text" id="ideal_depth" value="$ideal_depth">
                 </div>
                 <div class="parameter">
-                    <label>Gauge ideal depth:</label>
-                    <input type="text" id="gauge_ideal_depth" value="$gauge_ideal_depth">
+                    <label>MIN RADIUS:</label>
+                    <input type="text" id="min_radius" value="$min_radius">
+                </div>
+                <div class="parameter">
+                    <label>MAX RADIUS:</label>
+                    <input type="text" id="max_radius" value="$max_radius">
+                </div>
+                <div class="parameter">
+                    <label>MAX DEPTH DIFFERENCE:</label>
+                    <input type="text" id="max_depth_difference" value="$max_depth_difference">
                 </div>
                 <div class="parameter">
                     <button type="submit">Update Parameters</button>
@@ -160,8 +168,10 @@
                 record_filename: document.getElementById("record_filename").value,
                 resolution: document.getElementById("resolution").value,
                 jpg_quality: document.getElementById("jpg_quality").value,
-                gauge_sensitivity: document.getElementById("gauge_sensitivity").value,
-                gauge_ideal_depth: document.getElementById("gauge_ideal_depth").value
+                ideal_depth: document.getElementById("ideal_depth").value,
+                min_radius: document.getElementById("min_radius").value,
+                max_radius: document.getElementById("max_radius").value,
+                max_depth_difference: document.getElementById("max_depth_difference").value
             };
 
             // Send JSON data to /settings endpoint

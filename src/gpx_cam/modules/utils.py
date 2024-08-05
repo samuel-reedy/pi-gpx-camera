@@ -115,6 +115,26 @@ def move_file_to_complete(filename):
     except PermissionError as e:
         logger.error(f"Permission denied while moving file {filename}.avi: {e}")
 
+def move_file_to_complete(filename):
+    data_folder = os.path.abspath("../../data")
 
+    complete_folder = os.path.join(data_folder, "complete")
+    recording_folder = os.path.join(data_folder, "recording")
+
+    recording_path = os.path.join(recording_folder, f"{filename}.avi")
+    complete_path = os.path.join(complete_folder, f"{filename}.avi")
+    
+    if not os.path.exists(complete_folder):
+        os.makedirs(complete_folder)
+
+    try:
+        shutil.move(recording_path, complete_path)
+        logger.info(f"File {filename}.avi moved to complete folder.")
+    except FileNotFoundError:
+        logger.error(f"File {filename}.avi not found in data folder.")
+    except PermissionError as e:
+        logger.error(f"Permission denied while moving file {filename}.avi: {e}")
+    print(f"Recording path: {recording_path}")
+    print(f"Complete path: {complete_path}")
 
 

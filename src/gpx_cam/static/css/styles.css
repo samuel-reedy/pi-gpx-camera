@@ -141,13 +141,14 @@ html, body {
 
 /* Position the SVG gauges absolutely within the canvas container */
 #depth-gauge {
-    position: absolute;
+    position: relative;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     pointer-events: none; /* Allow clicks to pass through to the canvas */
     z-index: 1;
+    
 }
 
 .gauge {
