@@ -78,6 +78,10 @@
                     <span id="is_recording">$is_recording</span>
                 </div>
                 <div class="parameter">
+                    <label>STORE GPX:</label>
+                    <input type="text" id="store_gpx" value="$store_gpx">
+                </div>
+                <div class="parameter">
                     <label>REC START POSITION:</label>
                     <span id="rec_start_position">$rec_start_position</span>
                 </div>
@@ -134,7 +138,7 @@
                     <span id="framerate_js">$framerate_js</span>
                 </div>
                 <div class="parameter">
-                    <label>Gauge ideal depth:</label>
+                    <label>ideal_depth:</label>
                     <input type="text" id="ideal_depth" value="$ideal_depth">
                 </div>
                 <div class="parameter">
@@ -165,6 +169,7 @@
                 cam_exposure: document.getElementById("cam_exposure").value,
                 cam_framerate: document.getElementById("cam_framerate").value,
                 rec_framerate: document.getElementById("rec_framerate").value,
+                store_gpx: document.getElementById("store_gpx").value,
                 record_filename: document.getElementById("record_filename").value,
                 resolution: document.getElementById("resolution").value,
                 jpg_quality: document.getElementById("jpg_quality").value,

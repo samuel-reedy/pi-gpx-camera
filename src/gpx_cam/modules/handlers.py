@@ -101,14 +101,24 @@ class parametersHandler(tornado.web.RequestHandler):
         serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
         
         # Extract relevant variables from Config
-        lat = Config.mav_msg_GLOBAL_POSITION_INT.lat / 1.0e7
-        lon = Config.mav_msg_GLOBAL_POSITION_INT.lon / 1.0e7
-        alt = Config.mav_msg_GLOBAL_POSITION_INT.alt / 1000
-        relative_alt = Config.mav_msg_GLOBAL_POSITION_INT.relative_alt / 1000
-        vx = Config.mav_msg_GLOBAL_POSITION_INT.vx
-        vy = Config.mav_msg_GLOBAL_POSITION_INT.vy
-        vz = Config.mav_msg_GLOBAL_POSITION_INT.vz
-        hdg = Config.mav_msg_GLOBAL_POSITION_INT.hdg / 1000
+        if (Config.mav_msg_GLOBAL_POSITION_INT is not None):
+            lat = Config.mav_msg_GLOBAL_POSITION_INT.lat / 1.0e7
+            lon = Config.mav_msg_GLOBAL_POSITION_INT.lon / 1.0e7
+            alt = Config.mav_msg_GLOBAL_POSITION_INT.alt / 1000
+            relative_alt = Config.mav_msg_GLOBAL_POSITION_INT.relative_alt / 1000
+            vx = Config.mav_msg_GLOBAL_POSITION_INT.vx
+            vy = Config.mav_msg_GLOBAL_POSITION_INT.vy
+            vz = Config.mav_msg_GLOBAL_POSITION_INT.vz
+            hdg = Config.mav_msg_GLOBAL_POSITION_INT.hdg / 1000
+        else:
+            lat = 0
+            lon = 0
+            alt = 0
+            relative_alt = 0
+            vx = 0
+            vy = 0
+            vz = 0
+            hdg = 0
 
         template_vars = {
             'ip': serverIp,
@@ -117,6 +127,7 @@ class parametersHandler(tornado.web.RequestHandler):
             'cam_type': Config.CAM_TYPE,
             'run_camera': Config.RUN_CAMERA,
             'is_recording': Config.isRecording,
+            'store_gpx': Config.storeGPX,
             'rec_start_position': Config.rec_start_position,
             'record_filename': Config.record_filename,
             'resolution': Config.RESOLUTION,
@@ -287,9 +298,12 @@ class RecordHandler(tornado.web.RequestHandler):
             # Define your recording logic in a function
             def record(record_filename):
                 fn_vid = f'../../data/recording/{record_filename}.avi' if Config.RUN_CAMERA else 'No Camera Found'
+                logger.info(f"Recording started to {fn_vid}")
+                
+                
                 fn_gpx = f"../../data/recording/{record_filename}.gpx" if Config.mav_msg_GLOBAL_POSITION_INT else 'No position MAV messages found'
 
-                if Config.mav_msg_GLOBAL_POSITION_INT is not None:
+                if Config.mav_msg_GLOBAL_POSITION_INT is not None and Config.storeGPX:
                     gpx = gpxpy.gpx.GPX()
 
                     # Create a new track in our GPX file
@@ -303,13 +317,13 @@ class RecordHandler(tornado.web.RequestHandler):
                     msg = Config.mav_msg_GLOBAL_POSITION_INT
                     Config.rec_start_position = (msg.lat/1.0e7, msg.lon/1.0e7, msg.alt/1000.0)
 
+                    print("Starting GPX track")
+                    logger.info(f"Recording started to {fn_gpx}")
 
-                logger.info(f"Recording started to {fn_vid}")
+                
 
                 logger.debug('Starting record Thread')
-                status = f'Recording to {fn_vid}'
 
-                StatusHandler.update_status(status)
                 quality = 90
                 if Config.RUN_CAMERA:
                     output = FfmpegOutput(fn_vid,)
@@ -318,7 +332,19 @@ class RecordHandler(tornado.web.RequestHandler):
                 frame_count = 0
                 start_time = time.time()
                 last_time = start_time
-                while Config.isRecording:                  
+                while Config.isRecording:      
+
+                    if Config.mav_msg_GLOBAL_POSITION_INT is not None and Config.storeGPX:
+                        msg = Config.mav_msg_GLOBAL_POSITION_INT
+                        altitude = msg.alt / 1000.0
+                        lat = msg.lat / 1.0e7
+                        lon = msg.lon/ 1.0e7
+                        n_satellites = Config.mav_satellites_visible
+                        str_n_sats = f'Satellites: {n_satellites}'
+                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), comment=str_n_sats, speed=n_satellites, symbol='Waypoint'))
+                        # todo add photo frame number`
+
+
                     if Config.RUN_CAMERA:
                         try:
                             jpg = self.jpg_que.get(timeout=0.1)
@@ -327,17 +353,6 @@ class RecordHandler(tornado.web.RequestHandler):
                             continue
                         except Exception as e:
                             logger.error(f"Error in record thread {e}")
-
-
-                    if Config.mav_msg_GLOBAL_POSITION_INT is not None:
-                        msg = Config.mav_msg_GLOBAL_POSITION_INT
-                        altitude = msg.alt / 1000.0
-                        lat = msg.lat / 1.0e7
-                        lon = msg.lon/ 1.0e7
-                        n_satellites = Config.mav_satellites_visible
-                        str_n_sats = f'Satellites: {n_satellites}'
-                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), comment=str_n_sats, speed=n_satellites, symbol='Waypoint'))
-                        # todo add photo frame number
 
 
                     else:
@@ -353,7 +368,7 @@ class RecordHandler(tornado.web.RequestHandler):
 
                 if Config.RUN_CAMERA:
                     output.stop()
-                if Config.mav_msg_GLOBAL_POSITION_INT is not None:
+                if Config.storeGPX:
                     with open(fn_gpx, 'w') as f:
                         f.write(gpx.to_xml())
 
@@ -441,12 +456,20 @@ class SettingsHandler(tornado.web.RequestHandler):
             cam_exposure = int(data.get('cam_exposure', 2000))
             cam_framerate = int(data.get('cam_framerate', 20))
             rec_framerate = int(data.get('rec_framerate', 2))
-
+            
             ideal_depth = float(data.get('ideal_depth', -1))
             min_radius = int(data.get('min_radius', 20))
             max_radius = int(data.get('max_radius', 80))
             max_depth_difference = int(data.get('max_depth_difference', 3))
 
+            store_gpx = data.get('store_gpx')
+            
+            if str(store_gpx).lower() == 't' or str(store_gpx).lower() == 'true':
+                    Config.storeGPX = True
+            else:
+                Config.storeGPX = False
+
+                
             if cam_exposure is not None:
                 set_exposure(cam_exposure, picam2)
 

@@ -3,6 +3,7 @@ class Config:
     CAM_TYPE = "hq-6mm-CS-pi"
     RUN_CAMERA = False
     isRecording = False
+    storeGPX = False
     rec_start_position = None
     record_filename = "transect-001"
     RESOLUTION = None  # set by params
