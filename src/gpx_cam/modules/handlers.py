@@ -12,10 +12,12 @@ import time
 import shutil
 import cv2
 import simplejpeg
+import gpxpy
+import gpxpy.gpx
 
 
 from .utils import (
-    templatize, getFile, set_exposure, set_framerate, set_camera, move_file_to_complete, move_file_to_complete
+    templatize, getFile, set_exposure, set_framerate, set_camera, move_file_to_complete, move_file_to_complete, inject_gps_data
 )
 from .classes.config import Config
 from .classes.gauge import Gauge
@@ -249,51 +251,58 @@ class RecordHandler(tornado.web.RequestHandler):
                 os.makedirs("../../data/recording/")
             
             Config.isRecording = True
-            self.cap_que = queue.Queue(maxsize=2)
             self.jpg_que = queue.Queue(maxsize=2)
 
   
             def capture_arr():
                 logger.info('Starting capture Thread')
-
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                scale = 1
-                thickness = 2
-                colour = (0,255, 0)
+                
                 # Time delay for g_FRAMERATE frames per second
-                delay = 1 / Config.REC_FRAMERATE
+                frame_interval = 1 / Config.REC_FRAMERATE
                 logger.debug(f"{Config.REC_FRAMERATE = }")
                 frame_count = 0
+
+                begin_time = time.perf_counter()
+
                 while Config.isRecording:
-                    start_time = time.time()
                     arr = picam2.capture_array()
-                    text = f'#{frame_count}'
-                    frame_count += 1
+                    buffer = simplejpeg.encode_jpeg(arr, quality=Config.JPG_QUALITY, colorspace='RGB', colorsubsampling='420', fastdct=True)
+
                     if Config.mav_msg_GLOBAL_POSITION_INT is not None:
                         msg = Config.mav_msg_GLOBAL_POSITION_INT
-                        text += f', {msg.lat / 1.0e7}, {msg.lon/ 1.0e7}, {msg.alt / 1000.0}'
-
-                    (text_width, text_height) = cv2.getTextSize(text, font, scale, thickness)[0]
-                    # Draw a black rectangle under the text
-                    cv2.rectangle(arr, (0, 30 - text_height-5), (text_width, 40), (0, 0, 0), -1)
-                    cv2.putText(arr, str(text), (0, 30), font, scale, colour, thickness)
-
-                    start = time.time()
-                    buffer = simplejpeg.encode_jpeg(arr, quality=Config.JPG_QUALITY, colorspace='RGB', colorsubsampling='420', fastdct=True)
-                    logger.debug(f"simple-jpeg encode time = {time.time() - start} {len(buffer) = }")
+                        buffer = inject_gps_data(buffer, msg)
 
                     if self.jpg_que.full():
-                        self.jpg_que.get() # If the queue is full, remove an item before adding a new one
+                        self.jpg_que.get()  # If the queue is full, remove an item before adding a new one
                     self.jpg_que.put(buffer)
-    
-                    elapsed_time = time.time() - start_time
-                    if elapsed_time < delay:
-                        time.sleep(delay - elapsed_time)
+
+                    # Calculate the next frame time
+                    next_frame_time = begin_time + frame_count * frame_interval
+                    while time.perf_counter() < next_frame_time:
+                        pass  # Busy-wait loop to maintain the desired framerate
+
+                    frame_count += 1
       
 
             # Define your recording logic in a function
             def record(record_filename):
                 fn_vid = f'../../data/recording/{record_filename}.avi' if Config.RUN_CAMERA else 'No Camera Found'
+                fn_gpx = f"../../data/recording/{record_filename}.gpx" if Config.mav_msg_GLOBAL_POSITION_INT else 'No position MAV messages found'
+
+                if Config.mav_msg_GLOBAL_POSITION_INT is not None:
+                    gpx = gpxpy.gpx.GPX()
+
+                    # Create a new track in our GPX file
+                    gpx_track = gpxpy.gpx.GPXTrack(name='transect', description='transect description')
+                    gpx.tracks.append(gpx_track)
+
+                    # Create first segment in our GPX track:
+                    gpx_segment = gpxpy.gpx.GPXTrackSegment()
+                    gpx_track.segments.append(gpx_segment)
+
+                    msg = Config.mav_msg_GLOBAL_POSITION_INT
+                    Config.rec_start_position = (msg.lat/1.0e7, msg.lon/1.0e7, msg.alt/1000.0)
+
 
                 logger.info(f"Recording started to {fn_vid}")
 
@@ -309,7 +318,7 @@ class RecordHandler(tornado.web.RequestHandler):
                 frame_count = 0
                 start_time = time.time()
                 last_time = start_time
-                while Config.isRecording:
+                while Config.isRecording:                  
                     if Config.RUN_CAMERA:
                         try:
                             jpg = self.jpg_que.get(timeout=0.1)
@@ -320,45 +329,39 @@ class RecordHandler(tornado.web.RequestHandler):
                             logger.error(f"Error in record thread {e}")
 
 
+                    if Config.mav_msg_GLOBAL_POSITION_INT is not None:
+                        msg = Config.mav_msg_GLOBAL_POSITION_INT
+                        altitude = msg.alt / 1000.0
+                        lat = msg.lat / 1.0e7
+                        lon = msg.lon/ 1.0e7
+                        n_satellites = Config.mav_satellites_visible
+                        str_n_sats = f'Satellites: {n_satellites}'
+                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), comment=str_n_sats, speed=n_satellites, symbol='Waypoint'))
+                        # todo add photo frame number
+
+
                     else:
                         time.sleep(1)
 
 
                     frame_count += 1
-                    avg_fps = frame_count / (time.time() - start_time)
-                    # get the filesize of the video
-                    try:
-                        filesize = os.path.getsize(fn_vid) if Config.RUN_CAMERA else 0
-                    except Exception as e:
-                        filesize = 0
 
                     # on every second
                     if time.time() - last_time > 1: 
-
-                        status = f'Video fps = {avg_fps:.2f}  {frame_count = }  {filesize = }'
-                        StatusHandler.update_status(status)
                         last_time = time.time()
 
-                # save video
-                vid_status = fn_vid
+
                 if Config.RUN_CAMERA:
                     output.stop()
-                    vid_status = f'Video saved to {fn_vid}'
-
-                status = f'{vid_status}'
-
-                StatusHandler.update_status(status)
-
-            def record_max_size():
-                while Config.isRecording:
-                    record()
-                
-
+                if Config.mav_msg_GLOBAL_POSITION_INT is not None:
+                    with open(fn_gpx, 'w') as f:
+                        f.write(gpx.to_xml())
 
             # Create and start a thread running the record function
             self.rec_thread = threading.Thread(target=record, args=(Config.record_filename,))
             self.rec_thread.daemon = True
             self.rec_thread.start()
+
             if Config.RUN_CAMERA:
                 self.cap_thread = threading.Thread(target=capture_arr)
                 self.cap_thread.daemon = True
@@ -368,8 +371,8 @@ class RecordHandler(tornado.web.RequestHandler):
             logger.info("Recording stopped")
             Config.isRecording = False
             Config.rec_start_position = None
-            move_file_to_complete(Config.record_filename)
-            # self.thread.join()
+            move_file_to_complete(str(Config.record_filename), ".avi")
+            move_file_to_complete(str(Config.record_filename), ".gpx")
 
 
 
@@ -428,8 +431,6 @@ class FramerateHandler(tornado.web.RequestHandler):
 class SettingsHandler(tornado.web.RequestHandler):
     def post(self):
         try:
-            logger.info("Received request: %s", self.request.body)
-
             data = json.loads(self.request.body)
 
             picam2 = self.application.settings['picam2']

@@ -23,6 +23,8 @@ dependencies = [
     "opencv-python-headless",
     "simplejpeg",
     "netifaces",
+    "piexif",
+    "Pillow",
     ]
 
 requires-python = ">=3.8"

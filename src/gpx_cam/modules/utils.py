@@ -2,6 +2,11 @@
 import os
 import shutil
 from string import Template
+import piexif
+from PIL import Image
+import io
+from fractions import Fraction
+
 from .classes.config import Config
 from .logging import logger
 try:
@@ -62,41 +67,19 @@ def set_camera(cam, stream_resolution):
         set_framerate(Config.CAM_FRAMERATE, cam)
 
 
-        PRE_CALLBACK = False
-        if PRE_CALLBACK:
-            colour = (255, 0, 0)
-            origin = (0, 30)
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            scale = 1
-            thickness = 2
 
-            def apply_timestamp(request):
-                with MappedArray(request, "main") as m:
-                    # Calculate the width and height of the text box
-                    (text_width, text_height) = cv2.getTextSize(str(Config.mav_msg_GLOBAL_POSITION_INT), font, scale, thickness)[0]
-                    # Draw a black rectangle under the text
-                    cv2.rectangle(m.array, (0, 30 - text_height - 5), (text_width, 40), (0, 0, 0), -1)
-                    cv2.putText(m.array, str(Config.mav_msg_GLOBAL_POSITION_INT), (0, 30), font, scale, colour, thickness)
-                    # cv2.putText(m.array, 'RECORDING', (1700, 1050), font, scale, (255, 0, 0), 3)
 
-                    # Add camera settings to the overlay
-                    exposure_text = f"Exposure: {Config.cam_exposure}"
-                    framerate_text = f"FPS: {Config.CAM_FRAMERATE}"
-                    settings_text = f"{exposure_text}, {framerate_text}"
-                    (settings_text_width, settings_text_height) = cv2.getTextSize(settings_text, font, scale, thickness)[0]
-                    cv2.rectangle(m.array, (0, 0), (settings_text_width, settings_text_height + 10), (0, 0, 0), -1)
-                    cv2.putText(m.array, settings_text, (0, settings_text_height + 5), font, scale, colour, thickness)
-
-            cam.post_callback = apply_timestamp
-
-def move_file_to_complete(filename):
+def move_file_to_complete(filename, file_type):
     data_folder = os.path.abspath("../../data")
 
-    complete_folder = os.path.join(data_folder, "complete")
+    if (file_type==".gpx"):
+        complete_folder = os.path.join(data_folder, "complete/gpx")
+    else:
+        complete_folder = os.path.join(data_folder, "complete/avi")
     recording_folder = os.path.join(data_folder, "recording")
 
-    recording_path = os.path.join(recording_folder, f"{filename}.avi")
-    complete_path = os.path.join(complete_folder, f"{filename}.avi")
+    recording_path = os.path.join(recording_folder, filename + file_type)
+    complete_path = os.path.join(complete_folder, filename + file_type)
 
     if not os.path.exists(complete_folder):
         os.makedirs(complete_folder)
@@ -104,37 +87,54 @@ def move_file_to_complete(filename):
     try:
         if os.path.exists(complete_path):
             i = 1
-            while os.path.exists(os.path.join(complete_folder, f"{filename}({i}).avi")):
+            new_filename = filename + f"({i})" + file_type
+            while os.path.exists(os.path.join(complete_folder, new_filename)):
                 i += 1
-            complete_path = os.path.join(complete_folder, f"{filename}({i}).avi")
-            logger.info(f"File {filename}.avi already exists in complete folder. Renaming to {filename}({i}).avi")
+                new_filename = filename + f"({i})" + file_type
+            complete_path = os.path.join(complete_folder, new_filename)
+            logger.info(f"File {filename}.avi already exists in complete folder. Renaming to {filename}({i})")
         shutil.move(recording_path, complete_path)
-        logger.info(f"File {filename}.avi moved to complete folder.")
+        logger.info(f"File moved to complete folder.")
     except FileNotFoundError:
-        logger.error(f"File {filename}.avi not found in data folder.")
+        logger.error(f"File {complete_path} not found in data folder.")
     except PermissionError as e:
         logger.error(f"Permission denied while moving file {filename}.avi: {e}")
 
-def move_file_to_complete(filename):
-    data_folder = os.path.abspath("../../data")
 
-    complete_folder = os.path.join(data_folder, "complete")
-    recording_folder = os.path.join(data_folder, "recording")
 
-    recording_path = os.path.join(recording_folder, f"{filename}.avi")
-    complete_path = os.path.join(complete_folder, f"{filename}.avi")
+def convert_to_degrees(value):
+    degrees = int(value)
+    minutes = int((value - degrees) * 60)
+    seconds = (value - degrees - minutes / 60) * 3600
+    return ((degrees, 1), (minutes, 1), (int(seconds * 100), 100))
+
+def inject_gps_data(image_bytes, msg):
+    lat = msg.lat
+    lon = msg.lon
+
+    # Convert latitude and longitude to EXIF format
+    lat_ref = 'N' if lat >= 0 else 'S'
+    lon_ref = 'E' if lon >= 0 else 'W'
+
+    gps_ifd = {
+        piexif.GPSIFD.GPSLatitudeRef: lat_ref,
+        piexif.GPSIFD.GPSLatitude: convert_to_degrees(abs(lat / 1e7)),
+        piexif.GPSIFD.GPSLongitudeRef: lon_ref,
+        piexif.GPSIFD.GPSLongitude: convert_to_degrees(abs(lon / 1e7)),
+    }
+
+    # Create a new EXIF data structure
+    exif_dict = {"0th": {}, "Exif": {}, "GPS": gps_ifd, "Interop": {}, "1st": {}, "thumbnail": None}
+
+    # Convert the EXIF data to binary format
+    exif_bytes = piexif.dump(exif_dict)
+
+    # Load the image from bytes
+    img = Image.open(io.BytesIO(image_bytes))
+
+    # Save the image to a bytes buffer with the new EXIF data
+    output_buffer = io.BytesIO()
+    img.save(output_buffer, format=img.format, exif=exif_bytes)
+    output_buffer.seek(0)
     
-    if not os.path.exists(complete_folder):
-        os.makedirs(complete_folder)
-
-    try:
-        shutil.move(recording_path, complete_path)
-        logger.info(f"File {filename}.avi moved to complete folder.")
-    except FileNotFoundError:
-        logger.error(f"File {filename}.avi not found in data folder.")
-    except PermissionError as e:
-        logger.error(f"Permission denied while moving file {filename}.avi: {e}")
-    print(f"Recording path: {recording_path}")
-    print(f"Complete path: {complete_path}")
-
-
+    return output_buffer.getvalue()
