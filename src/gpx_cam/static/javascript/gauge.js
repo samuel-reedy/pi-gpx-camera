@@ -17,6 +17,9 @@ function updateGauge(currentDepth, idealDepth, minRadius, maxRadius, maxDepthDif
     const currentRadius = mapDifferenceToRadius(depthDifference, minRadius, maxRadius, maxDepthDifference);
     
     currentDepthCircle.setAttribute('r', currentRadius);
+
+    const textElement = document.getElementById('current-depth-text');
+    updateTextPosition(textElement, currentDepthCircle, currentDepth, 'right');
 }
 
 const currentDepthCircle = document.getElementById('current-depth');
@@ -27,6 +30,16 @@ var minRadius;
 var maxRadius;
 var maxDepthDifference;
 
+function updateTextPosition(textObj, circleObj, text, position = 'right') {
+    textObj.textContent = text.toFixed(2) + " m";
+
+    const circleRadius = parseFloat(circleObj.getAttribute('r'));
+    const textWidth = textObj.offsetWidth;
+    const newX = circleRadius + textWidth/2;
+    const newTranslate = position === 'right' ? `translate(${newX + 5}px, 0)` : `translate(-${newX + 5}px, 0)`;
+    
+    textObj.style.transform = newTranslate;
+}
 
 
 function fetchGaugeParameters() {
@@ -40,6 +53,8 @@ function fetchGaugeParameters() {
                 maxDepthDifference = data.data.max_depth_difference;
                 const idealRadius = mapDifferenceToRadius(0, minRadius, maxRadius, maxDepthDifference);
                 idealDepthCircle.setAttribute('r', idealRadius);
+                const textElement = document.getElementById('ideal-depth-text');
+                updateTextPosition(textElement, idealDepthCircle, idealDepth, 'left');
             }
         })
         .catch(error => console.error('Error fetching gauge parameters:', error));

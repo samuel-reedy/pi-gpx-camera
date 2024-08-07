@@ -6,6 +6,7 @@ html, body {
     padding: 0;
     background-color: rgb(33, 98, 172);
     overflow: hidden; /* Prevent scroll bars */
+    font-family: Arial, sans-serif;
 }
 
 #streamStage {
@@ -139,8 +140,7 @@ html, body {
     height: 100%;
 }
 
-/* Position the SVG gauges absolutely within the canvas container */
-#depth-gauge {
+#depth-gauge-container {
     position: relative;
     top: 0;
     left: 0;
@@ -148,12 +148,22 @@ html, body {
     height: 100%;
     pointer-events: none; /* Allow clicks to pass through to the canvas */
     z-index: 1;
-    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Position the SVG gauges absolutely within the canvas container */
+#depth-gauge {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    width: 100%;
 }
 
 .gauge {
     fill: none;
-    stroke-width: 5;
+    stroke-width: 3;
 }
 
 #ideal-depth {
@@ -171,4 +181,22 @@ html, body {
     font-weight: bold;
     white-space: normal; /* Add this line to prevent line breaks */
     overflow: visible; /* Add this line to hide overflowing text */
+}
+
+#ideal-depth-text{
+    color: rgb(255, 255, 255, 0.75);
+    font-weight: bold;
+}
+
+#current-depth-text {
+    color: rgb(0, 255, 0);
+    font-weight: bold;
+}
+
+.text-container {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
