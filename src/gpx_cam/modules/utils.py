@@ -107,6 +107,8 @@ def move_file_to_complete(filename, file_type):
         logger.info(f"File moved to complete folder.")
 
         logger.error(f"File {complete_path} not found in data folder.")
+    except FileNotFoundError as e:
+        logger.error(f"File {complete_path} not found in data folder: {e}")
     except PermissionError as e:
         logger.error(f"Permission denied while moving file {filename}: {e}")
 
@@ -173,7 +175,6 @@ def inject_gps_data(image_bytes, msg):
 
         output_bytes = output_buffer.getvalue()
         output_exif_data = piexif.load((output_bytes))
-        print(f"Updated Exif data: {output_exif_data}")
 
         return output_bytes
     except Exception as e:

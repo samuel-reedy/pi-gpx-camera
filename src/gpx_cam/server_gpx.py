@@ -94,8 +94,7 @@ def process_mavlink_data():
         )
 
         while True:
-            time.sleep(0.01)
-            msg = the_connection.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=1)
+            msg = the_connection.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=10)
             if msg is not None:
                 logger.debug(f"Received GLOBAL_POSITION_INT: {msg}")
                 # Convert msg to a dictionary
@@ -114,7 +113,7 @@ def process_mavlink_data():
             else:
                 logger.debug("No GLOBAL_POSITION_INT message received")
 
-            msg = the_connection.recv_match(type='GPS_RAW_INT', blocking=True, timeout=1)
+            msg = the_connection.recv_match(type='GPS_RAW_INT', blocking=True, timeout=10)
             if msg is not None:
                 config.set('MAV_SATELLITES_VISIBLE', msg.satellites_visible)
             else:
@@ -178,8 +177,6 @@ def main():
     # directory_to_serve = os.path.dirname(__file__)
     # directory_to_serve = '/static'
 
-    gauge = Gauge();
-
     requestHandlers = [
         (r"/ws/", wsHandler),
         (r"/center", indexHandler),
@@ -221,7 +218,7 @@ def main():
             encoder.output = output
             picam2.start_recording(encoder, output)
 
-        application = tornado.web.Application(requestHandlers, picam2=picam2, gauge=gauge)
+        application = tornado.web.Application(requestHandlers, picam2=picam2)
         try:
             application.listen(config.get('PORT'))
         except Exception as e:

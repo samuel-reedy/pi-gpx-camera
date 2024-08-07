@@ -152,7 +152,8 @@ class parametersHandler(tornado.web.RequestHandler):
             'ideal_depth': config.get('GAUGE.IDEAL_DEPTH'),
             'min_radius': config.get('GAUGE.MIN_RADIUS'),
             'max_radius': config.get('GAUGE.MAX_RADIUS'),
-            'max_depth_difference': config.get('GAUGE.MAX_DEPTH_DIFFERENCE')
+            'max_depth_difference': config.get('GAUGE.MAX_DEPTH_DIFFERENCE'),
+            'rec_time': config.get('REC_TIME')
         }
 
         parametersHtml = templatize(getFile('templates/parameters.html'), template_vars)
@@ -224,6 +225,9 @@ class StatusHandler(tornado.web.RequestHandler):
     def _get_record_filename(self):
         return {"record_filename": config.get('RECORD_FILENAME')}
     
+    def _get_record_time(Self):
+        return {"rec_time": config.get('REC_TIME')}
+    
     async def get(self):
         while True:
             if self.request.connection.stream.closed():
@@ -236,6 +240,7 @@ class StatusHandler(tornado.web.RequestHandler):
                 data.update(self._get_record_state())
                 data.update(self._get_record_filename())
                 data.update(self._get_status())
+                data.update(self._get_record_time())
                 data = json.dumps(data)
                 try:
                     self.write(f"data: {data} \n\n")
@@ -267,6 +272,8 @@ class RecordHandler(tornado.web.RequestHandler):
             config.set('IS_RECORDING', True)
             self.jpg_que = queue.Queue(maxsize=2)
 
+            begin_time = time.perf_counter()
+
             def capture_arr():
                 logger.info('Starting capture Thread')
                 
@@ -283,12 +290,12 @@ class RecordHandler(tornado.web.RequestHandler):
                     if config.get('MAV_MSG_GLOBAL_POSITION_INT') is not None:
                         msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
                         buffer = inject_gps_data(buffer, msg)
-                        print(piexif.load(buffer))
 
                     if self.jpg_que.full():
                         self.jpg_que.get()  # If the queue is full, remove an item before adding a new one
                     self.jpg_que.put(buffer)
 
+                    config.set('REC_TIME', time.perf_counter() - begin_time)
                     # Calculate the time to sleep to maintain the desired framerate
                     elapsed_time = time.perf_counter() - start_time
                     sleep_time = frame_interval - elapsed_time
@@ -335,7 +342,7 @@ class RecordHandler(tornado.web.RequestHandler):
                 start_time = time.time()
                 last_time = start_time
                 while config.get('IS_RECORDING'):      
-
+                    
                     if config.get('MAV_MSG_GLOBAL_POSITION_INT') is not None and config.get('STORE_GPX'):
                         msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
                         altitude = msg["alt"] / 1000.0
@@ -509,7 +516,6 @@ class SettingsHandler(tornado.web.RequestHandler):
 
     def get(self):
         try:
-            gauge = self.application.settings['gauge']
             self.write({
                 "status": "success",
                 "data": {

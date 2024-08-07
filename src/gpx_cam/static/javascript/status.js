@@ -15,4 +15,10 @@ source.onmessage = function(event) {
     if (statusTextElement) {
         statusTextElement.innerHTML = data.status;
     }
+
+    console.log(data)
+    var recordingTimeElement = document.getElementById('clock');
+    if (recordingTimeElement) {
+        recordingTimeElement.innerHTML = parseFloat(data.rec_time).toFixed(2);
+    }
 };
