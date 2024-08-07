@@ -32,11 +32,19 @@
         <div id="video-container">
             <video autoplay muted id="stream"></video>
             <canvas id="canvas"></canvas>
-            <svg id="depth-gauge"">
-                <circle id="ideal-depth" class="gauge" cx="50%" cy="50%" r="50"></circle>
-                <circle id="current-depth" class="gauge" cx="50%" cy="50%" r="50"></circle>
-            </svg>
-        </div>        
+            <div id="depth-gauge-container">
+                <svg id="depth-gauge">
+                    <circle id="ideal-depth" class="gauge" cx="50%" cy="50%" r="50"></circle>
+                    <circle id="current-depth" class="gauge" cx="50%" cy="50%" r="50"></circle>
+                </svg>
+                <div id="ideal-depth-text-container" class="text-container">
+                    <span id="ideal-depth-text">Ideal Depth</span>
+                </div>
+                <div id="current-depth-text-container" class="text-container">
+                    <span id="current-depth-text">Current Depth</span>
+                </div>
+            </div>
+        </div>       
     </div>
 
     <script src="static/javascript/main.js"></script>
