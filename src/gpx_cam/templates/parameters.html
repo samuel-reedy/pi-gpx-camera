@@ -41,10 +41,14 @@
         .parameter label {
             /* font-weight: bold; */
             color: rgb(218, 223, 233);
+            width: 150px;
+            text-align: left;
         }
         .parameter span {
             font-weight: normal;
             color: rgb(226, 229, 236);
+            width: 200px;
+            text-align: left;
         }
         .parameter input {
             font-weight: bold;
@@ -52,7 +56,18 @@
             background-color: #222222;
             color: rgb(255, 255, 255);
             border-color: white;
+            width: 200px;
+            text-align: left;
+            box-sizing: border-box;
         }
+
+        .parameter .details {
+            font-size: 0.8em;
+            color: rgb(163, 167, 179);
+            text-align: left;
+            width: 400px;
+        }
+        
         #submit {
             font-weight: bold;
             padding: 5px;
@@ -93,18 +108,22 @@
                 <h2>General</h2>
                 <div class="parameter">
                     <label>IP:</label>
+                    <span class="details">The IP address of the device.</span>
                     <span id="ip">$ip</span>
                 </div>
                 <div class="parameter">
                     <label>Port:</label>
+                    <span class="details">The port number of the device.</span>
                     <span id="port">$port</span>
                 </div>
                 <div class="parameter">
                     <label>WS URL:</label>
+                    <span class="details">The WebSocket URL of the device.</span>
                     <span id="wsURL">$wsURL</span>
                 </div>
                 <div class="parameter">
                     <label>Cam Type:</label>
+                    <span class="details">The type of camera.</span>
                     <span id="cam_type">$cam_type</span>
                 </div>
             </div>
@@ -114,14 +133,17 @@
                 <h2>Stream</h2>
                 <div class="parameter">
                     <label>Framerate:</label>
+                    <span class="details">The framerate of the camera stream.</span>
                     <input type="text" id="cam_framerate" value="$cam_framerate">
                 </div>
                 <div class="parameter">
                     <label>Resolution:</label>
+                    <span class="details">The resolution of the camera stream.</span>
                     <span id="stream_resolution">$stream_resolution</span>
                 </div>
                 <div class="parameter">
                     <label>Exposure:</label>
+                    <span class="details">The exposure setting of the camera.</span>
                     <input type="text" id="cam_exposure" value="$cam_exposure">
                 </div>
             </div>
@@ -131,34 +153,42 @@
                 <h2>Recording</h2>
                 <div class="parameter">
                     <label>Framerate:</label>
+                    <span class="details">The framerate of the recorded video.</span>
                     <input type="text" id="rec_framerate" value="$rec_framerate">
                 </div>
                 <div class="parameter">
                     <label>Store GPX:</label>
+                    <span class="details">Whether to store GPX data.</span>
                     <input type="text" id="store_gpx" value="$store_gpx">
                 </div>
                 <div class="parameter">
                     <label>Filename:</label>
+                    <span class="details">The filename of the recorded video.</span>
                     <input type="text" id="record_filename" value="$record_filename">
                 </div>
                 <div class="parameter">
                     <label>Run Camera:</label>
+                    <span class="details">Whether to run the camera.</span>
                     <span id="run_camera">$run_camera</span>
                 </div>
                 <div class="parameter">
                     <label>Is Recording:</label>
+                    <span class="details">Whether the camera is currently recording.</span>
                     <span id="is_recording">$is_recording</span>
                 </div>
                 <div class="parameter">
                     <label>Resolution Scale:</label>
+                    <span class="details">The scale of the video resolution.</span>
                     <input type="text" id="resolution" value="$resolution">
                 </div>
                 <div class="parameter">
                     <label>JPG Quality:</label>
+                    <span class="details">The quality of the JPEG images.</span>
                     <input type="text" id="jpg_quality" value="$jpg_quality">
                 </div>
                 <div class="parameter">
                     <label>Framerate JS:</label>
+                    <span class="details">The framerate of the JavaScript code.</span>
                     <span id="framerate_js">$framerate_js</span>
                 </div>
             </div>
@@ -168,18 +198,22 @@
                 <h2>Gauge</h2>
                 <div class="parameter">
                     <label>Ideal Depth:</label>
+                    <span class="details">The ideal depth for the gauge.</span>
                     <input type="text" id="ideal_depth" value="$ideal_depth">
                 </div>
                 <div class="parameter">
                     <label>Min Radius:</label>
+                    <span class="details">The minimum radius for the gauge.</span>
                     <input type="text" id="min_radius" value="$min_radius">
                 </div>
                 <div class="parameter">
                     <label>Max Radius:</label>
+                    <span class="details">The maximum radius for the gauge.</span>
                     <input type="text" id="max_radius" value="$max_radius">
                 </div>
                 <div class="parameter">
                     <label>Max Depth Difference:</label>
+                    <span class="details">The maximum difference in depth for the gauge.</span>
                     <input type="text" id="max_depth_difference" value="$max_depth_difference">
                 </div>
             </div>
@@ -190,42 +224,52 @@
                 
                 <div class="parameter">
                     <label>Latitude:</label>
+                    <span class="details">The latitude of the device.</span>
                     <span id="lat">$lat</span>
                 </div>
                 <div class="parameter">
                     <label>Longitude:</label>
+                    <span class="details">The longitude of the device.</span>
                     <span id="lon">$lon</span>
                 </div>
                 <div class="parameter">
                     <label>Altitude:</label>
+                    <span class="details">The altitude of the device.</span>
                     <span id="alt">$alt</span>
                 </div>
                 <div class="parameter">
                     <label>Relative Altitude:</label>
+                    <span class="details">The relative altitude of the device.</span>
                     <span id="relative_alt">$relative_alt</span>
                 </div>
                 <div class="parameter">
                     <label>VX:</label>
+                    <span class="details">The velocity in the X direction.</span>
                     <span id="vx">$vx</span>
                 </div>
                 <div class="parameter">
                     <label>VY:</label>
+                    <span class="details">The velocity in the Y direction.</span>
                     <span id="vy">$vy</span>
                 </div>
                 <div class="parameter">
                     <label>VZ:</label>
+                    <span class="details">The velocity in the Z direction.</span>
                     <span id="vz">$vz</span>
                 </div>
                 <div class="parameter">
                     <label>Heading:</label>
+                    <span class="details">The heading of the device.</span>
                     <span id="hdg">$hdg</span>
                 </div>
                 <div class="parameter">
                     <label>Satellites:</label>
+                    <span class="details">The number of visible satellites.</span>
                     <span id="mav_satellites_visible">$mav_satellites_visible</span>
                 </div>
                 <div class="parameter">
                     <label>Start Position:</label>
+                    <span class="details">The starting position of the recording.</span>
                     <span id="rec_start_position">$rec_start_position</span>
                 </div>
                 
