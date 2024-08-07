@@ -15,6 +15,8 @@ import simplejpeg
 import gpxpy
 import gpxpy.gpx
 
+import piexif
+
 
 from .utils import (
     templatize, getFile, set_exposure, set_framerate, set_camera, move_file_to_complete, 
@@ -265,35 +267,33 @@ class RecordHandler(tornado.web.RequestHandler):
             config.set('IS_RECORDING', True)
             self.jpg_que = queue.Queue(maxsize=2)
 
-  
             def capture_arr():
                 logger.info('Starting capture Thread')
                 
                 # Time delay for g_FRAMERATE frames per second
                 frame_interval = 1 / config.get('REC_FRAMERATE')
                 logger.debug(f"{config.get('REC_FRAMERATE') = }")
-                frame_count = 0
-
-                begin_time = time.perf_counter()
 
                 while config.get('IS_RECORDING'):
+                    start_time = time.perf_counter()
+
                     arr = picam2.capture_array()
                     buffer = simplejpeg.encode_jpeg(arr, quality=config.get('JPG_QUALITY'), colorspace='RGB', colorsubsampling='420', fastdct=True)
 
                     if config.get('MAV_MSG_GLOBAL_POSITION_INT') is not None:
                         msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
                         buffer = inject_gps_data(buffer, msg)
+                        print(piexif.load(buffer))
 
                     if self.jpg_que.full():
                         self.jpg_que.get()  # If the queue is full, remove an item before adding a new one
                     self.jpg_que.put(buffer)
 
-                    # Calculate the next frame time
-                    next_frame_time = begin_time + frame_count * frame_interval
-                    while time.perf_counter() < next_frame_time:
-                        pass  # Busy-wait loop to maintain the desired framerate
-
-                    frame_count += 1
+                    # Calculate the time to sleep to maintain the desired framerate
+                    elapsed_time = time.perf_counter() - start_time
+                    sleep_time = frame_interval - elapsed_time
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
       
 
             # Define your recording logic in a function
@@ -316,7 +316,8 @@ class RecordHandler(tornado.web.RequestHandler):
                     gpx_track.segments.append(gpx_segment)
 
                     msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
-                    config.set('REC_START_POSITION', (msg.lat/1.0e7, msg.lon/1.0e7, msg.alt/1000.0))
+                    print(msg)
+                    config.set('REC_START_POSITION', (msg["lat"]/1.0e7, msg["lon"]/1.0e7, msg["alt"]/1000.0))
 
                     print("Starting GPX track")
                     logger.info(f"Recording started to {fn_gpx}")
@@ -337,9 +338,9 @@ class RecordHandler(tornado.web.RequestHandler):
 
                     if config.get('MAV_MSG_GLOBAL_POSITION_INT') is not None and config.get('STORE_GPX'):
                         msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
-                        altitude = msg.alt / 1000.0
-                        lat = msg.lat / 1.0e7
-                        lon = msg.lon/ 1.0e7
+                        altitude = msg["alt"] / 1000.0
+                        lat = msg["lat"] / 1.0e7
+                        lon = msg["lon"]/ 1.0e7
                         n_satellites = config.get('MAV_SATELLITES_VISIBLE')
                         str_n_sats = f'Satellites: {n_satellites}'
                         gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), comment=str_n_sats, speed=n_satellites, symbol='Waypoint'))
@@ -388,7 +389,8 @@ class RecordHandler(tornado.web.RequestHandler):
             config.set('IS_RECORDING', False)
             config.set('REC_START_POSITION', None)
             move_file_to_complete(str(config.get('RECORD_FILENAME')), ".avi")
-            move_file_to_complete(str(config.get('RECORD_FILENAME')), ".gpx")
+            if (config.get('STORE_GPX')):
+                move_file_to_complete(str(config.get('RECORD_FILENAME')), ".gpx")
 
 
 class FilenameHandler(tornado.web.RequestHandler):

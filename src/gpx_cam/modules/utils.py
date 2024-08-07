@@ -112,42 +112,70 @@ def move_file_to_complete(filename, file_type):
 
 
 
+def deg_to_dms(decimal_coordinate, cardinal_directions):
+    if decimal_coordinate < 0:
+        compass_direction = cardinal_directions[0]
+    elif decimal_coordinate > 0:
+        compass_direction = cardinal_directions[1]
+    else:
+        compass_direction = ""
+    degrees = int(abs(decimal_coordinate))
+    decimal_minutes = (abs(decimal_coordinate) - degrees) * 60
+    minutes = int(decimal_minutes)
+    seconds = Fraction((decimal_minutes - minutes) * 60).limit_denominator(100)
+    return degrees, minutes, seconds, compass_direction
 
-def convert_to_degrees(value):
-    degrees = int(value)
-    minutes = int((value - degrees) * 60)
-
-    seconds = (value - degrees - minutes / 60) * 3600
-    return ((degrees, 1), (minutes, 1), (int(seconds * 100), 100))
+def dms_to_exif_format(dms_degrees, dms_minutes, dms_seconds):
+    exif_format = (
+        (dms_degrees, 1),
+        (dms_minutes, 1),
+        (int(dms_seconds.limit_denominator(100).numerator), int(dms_seconds.limit_denominator(100).denominator))
+    )
+    return exif_format
 
 
 def inject_gps_data(image_bytes, msg):
-    lat = msg.lat
-    lon = msg.lon
+    try:
+        
 
-    # Convert latitude and longitude to EXIF format
-    lat_ref = 'N' if lat >= 0 else 'S'
-    lon_ref = 'E' if lon >= 0 else 'W'
+        latitude = msg['lat'] / 1e7
+        longitude = msg['lon'] / 1e7
 
-    gps_ifd = {
-        piexif.GPSIFD.GPSLatitudeRef: lat_ref,
-        piexif.GPSIFD.GPSLatitude: convert_to_degrees(abs(lat / 1e7)),
-        piexif.GPSIFD.GPSLongitudeRef: lon_ref,
-        piexif.GPSIFD.GPSLongitude: convert_to_degrees(abs(lon / 1e7)),
-    }
+        logger.debug(f"Injecting GPS data: lat={latitude}, lon={longitude}")
 
-    # Create a new EXIF data structure
-    exif_dict = {"0th": {}, "Exif": {}, "GPS": gps_ifd, "Interop": {}, "1st": {}, "thumbnail": None}
+        # Convert the latitude and longitude coordinates to DMS
+        latitude_dms = deg_to_dms(latitude, ["S", "N"])
+        longitude_dms = deg_to_dms(longitude, ["W", "E"])
 
-    # Convert the EXIF data to binary format
-    exif_bytes = piexif.dump(exif_dict)
+        # Convert the DMS values to EXIF values
+        exif_latitude = dms_to_exif_format(latitude_dms[0], latitude_dms[1], latitude_dms[2])
+        exif_longitude = dms_to_exif_format(longitude_dms[0], longitude_dms[1], longitude_dms[2])
 
-    # Load the image from bytes
-    img = Image.open(io.BytesIO(image_bytes))
+        exif_data = piexif.load((image_bytes))
 
-    # Save the image to a bytes buffer with the new EXIF data
-    output_buffer = io.BytesIO()
-    img.save(output_buffer, format=img.format, exif=exif_bytes)
-    output_buffer.seek(0)
-    
-    return output_buffer.getvalue()
+        # Create the GPS EXIF data
+        coordinates = {
+            piexif.GPSIFD.GPSVersionID: (2, 0, 0, 0),
+            piexif.GPSIFD.GPSLatitude: exif_latitude,
+            piexif.GPSIFD.GPSLatitudeRef: latitude_dms[3],
+            piexif.GPSIFD.GPSLongitude: exif_longitude,
+            piexif.GPSIFD.GPSLongitudeRef: longitude_dms[3]
+        }
+
+        # Update the EXIF data with the GPS information
+        exif_data['GPS'] = coordinates
+
+        # Dump the updated EXIF data and insert it into the image
+        exif_bytes = piexif.dump(exif_data)
+        output_buffer = io.BytesIO()
+        piexif.insert(exif_bytes, image_bytes, output_buffer)
+        output_buffer.seek(0)
+
+        output_bytes = output_buffer.getvalue()
+        output_exif_data = piexif.load((output_bytes))
+        print(f"Updated Exif data: {output_exif_data}")
+
+        return output_bytes
+    except Exception as e:
+        logger.error(f"Error injecting GPS data: {e}")
+        return image_bytes
