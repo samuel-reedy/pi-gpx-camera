@@ -25,6 +25,7 @@ dependencies = [
     "netifaces",
     "piexif",
     "Pillow",
+    "FileLock",
     ]
 
 requires-python = ">=3.8"
