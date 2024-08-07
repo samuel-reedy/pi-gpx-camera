@@ -3,7 +3,6 @@ from ..logging import logger
 import prctl
 from picamera2.outputs import Output
 import signal
-from ..classes.config import Config
 
 class FfmpegOutput(Output):
     """
@@ -65,6 +64,6 @@ class FfmpegOutput(Output):
                 if self.error_callback:
                     self.error_callback(e)
                 else:
-                    logging.warning(f"Error in ffmpeg outputframe {e}")
+                    logger.warning(f"Error in ffmpeg outputframe {e}")
             else:
                 self.outputtimestamp(timestamp)

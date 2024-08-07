@@ -6,8 +6,12 @@ import piexif
 from PIL import Image
 import io
 from fractions import Fraction
+import json
 
-from .classes.config import Config
+
+
+from .classes.configHandler import config
+
 from .logging import logger
 try:
     # assert False
@@ -31,26 +35,26 @@ def getFile(filePath):
     return content
 
 def set_exposure(exposure, cam):
-    if Config.RUN_CAMERA:
+    if config.get('RUN_CAMERA'):
         # clip 100 to 20000
         exposure = max(100, min(exposure, 20000))
-        Config.cam_exposure = exposure
-        cam.set_controls({'ExposureTime': Config.cam_exposure})
-        logger.debug(f"Set new exposure: {Config.cam_exposure}")
+        config.set('CAM_EXPOSURE', exposure)
+        cam.set_controls({'ExposureTime': config.get('CAM_EXPOSURE')})
+        logger.debug(f"Set new exposure: {config.get('CAM_EXPOSURE')}")
 
 def set_framerate(exposure, cam):
-    if Config.RUN_CAMERA:
+    if config.get('RUN_CAMERA'):
         framerate = max(1, min(exposure, 30))
-        Config.CAM_FRAMERATE = framerate
-        cam.set_controls({'FrameRate': Config.CAM_FRAMERATE})
-        logger.debug(f"Set new framerate: {Config.CAM_FRAMERATE}")
+        config.set('CAM_FRAMERATE', framerate)
+        cam.set_controls({'FrameRate': config.get('CAM_FRAMERATE')})
+        logger.debug(f"Set new framerate: {config.get('CAM_FRAMERATE')}")
 
 def set_camera(cam, stream_resolution):
-    if Config.RUN_CAMERA:
+    if config.get('RUN_CAMERA'):
 
-        resolution = [int(dim * Config.RESOLUTION) for dim in cam.sensor_resolution]
+        resolution = [int(dim * config.get('RESOLUTION')) for dim in cam.sensor_resolution]
         main_stream = {'format': 'BGR888', 'size': resolution}
-        lores_stream = {"size": (stream_resolution["width"], stream_resolution["height"])}
+        lores_stream = {"size": (stream_resolution["WIDTH"], stream_resolution["HEIGHT"])}
         # lores_stream = {"size": (1280, 960)}
         # lores_stream = {"size": (1920, 1080)}
 
@@ -62,10 +66,9 @@ def set_camera(cam, stream_resolution):
         cam.start()
         # picam2.controls.ExposureTime = 20000
         # picam2.set_controls({"ExposureTime": 20000, "FrameRate": Config.CAM_FRAMERATE})
-        cam.set_controls({"AeExposureMode": 1, "FrameRate": Config.CAM_FRAMERATE})    # 1 = short https://libcamera.org/api-html/namespacelibcamera_1_1controls.html
-        set_exposure(2000, cam)
-        set_framerate(Config.CAM_FRAMERATE, cam)
-
+        cam.set_controls({"AeExposureMode": 1, "FrameRate": config.get('CAM_FRAMERATE')})    # 1 = short https://libcamera.org/api-html/namespacelibcamera_1_1controls.html
+        set_exposure(config.get('CAM_EXPOSURE'), cam)
+        set_framerate(config.get('CAM_FRAMERATE'), cam)
 
 
 
@@ -102,18 +105,21 @@ def move_file_to_complete(filename, file_type):
 
         shutil.move(recording_path, complete_path)
         logger.info(f"File moved to complete folder.")
-    except FileNotFoundError:
+
         logger.error(f"File {complete_path} not found in data folder.")
     except PermissionError as e:
         logger.error(f"Permission denied while moving file {filename}: {e}")
 
 
 
+
 def convert_to_degrees(value):
     degrees = int(value)
     minutes = int((value - degrees) * 60)
+
     seconds = (value - degrees - minutes / 60) * 3600
     return ((degrees, 1), (minutes, 1), (int(seconds * 100), 100))
+
 
 def inject_gps_data(image_bytes, msg):
     lat = msg.lat

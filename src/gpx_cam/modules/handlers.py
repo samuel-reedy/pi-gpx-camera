@@ -17,13 +17,15 @@ import gpxpy.gpx
 
 
 from .utils import (
-    templatize, getFile, set_exposure, set_framerate, set_camera, move_file_to_complete, move_file_to_complete, inject_gps_data
+    templatize, getFile, set_exposure, set_framerate, set_camera, move_file_to_complete, 
+    move_file_to_complete, inject_gps_data
 )
-from .classes.config import Config
-from .classes.gauge import Gauge
+
 from .logging import logger
 
 from .classes.ffmpegOutput import FfmpegOutput
+
+from .classes.configHandler import config
 
 class wsHandler(tornado.websocket.WebSocketHandler):
     connections = []
@@ -57,7 +59,6 @@ class wsHandler(tornado.websocket.WebSocketHandler):
         return True
 
 
-
 class indexHandler(tornado.web.RequestHandler):
     def get(self):
         server_host = self.request.host.split(':')[0]  # Split to remove port if present
@@ -65,12 +66,12 @@ class indexHandler(tornado.web.RequestHandler):
         
         template_vars = {
             'ip': serverIp,
-            'port': Config.PORT,
-            'fps': Config.framerate_js,
-            'record_filename': Config.record_filename,
-            'exposure': Config.cam_exposure,
-            'framerate': Config.CAM_FRAMERATE,
-            'isRecording': 'true' if Config.isRecording else 'false'
+            'port': config.get('PORT'),
+            'fps': config.get('FRAMERATE_JS'),
+            'record_filename': config.get('RECORD_FILENAME'),
+            'exposure': config.get('CAM_EXPOSURE'),
+            'framerate': config.get('CAM_FRAMERATE'),
+            'isRecording': 'true' if config.get('IS_RECORDING') else 'false'
         }
         
         centerHtml = templatize(getFile('templates/index.html'), template_vars)
@@ -83,12 +84,12 @@ class thumbnailHandler(tornado.web.RequestHandler):
         
         template_vars = {
             'ip': serverIp,
-            'port': Config.PORT,
-            'fps': Config.framerate_js,
-            'record_filename': Config.record_filename,
-            'exposure': Config.cam_exposure,
-            'framerate': Config.CAM_FRAMERATE,
-            'isRecording': 'true' if Config.isRecording else 'false'
+            'port': config.get('PORT'),
+            'fps': config.get('FRAMERATE_JS'),
+            'record_filename': config.get('RECORD_FILENAME'),
+            'exposure': config.get('CAM_EXPOSURE'),
+            'framerate': config.get('CAM_FRAMERATE'),
+            'isRecording': 'true' if config.get('IS_RECORDING') else 'false'
         }
         
 
@@ -100,16 +101,18 @@ class parametersHandler(tornado.web.RequestHandler):
         server_host = self.request.host.split(':')[0]  # Split to remove port if present
         serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
         
-        # Extract relevant variables from Config
-        if (Config.mav_msg_GLOBAL_POSITION_INT is not None):
-            lat = Config.mav_msg_GLOBAL_POSITION_INT.lat / 1.0e7
-            lon = Config.mav_msg_GLOBAL_POSITION_INT.lon / 1.0e7
-            alt = Config.mav_msg_GLOBAL_POSITION_INT.alt / 1000
-            relative_alt = Config.mav_msg_GLOBAL_POSITION_INT.relative_alt / 1000
-            vx = Config.mav_msg_GLOBAL_POSITION_INT.vx
-            vy = Config.mav_msg_GLOBAL_POSITION_INT.vy
-            vz = Config.mav_msg_GLOBAL_POSITION_INT.vz
-            hdg = Config.mav_msg_GLOBAL_POSITION_INT.hdg / 1000
+        msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
+
+        # Extract relevant variables from config
+        if (msg is not None):
+            lat = msg['lat'] / 1.0e7
+            lon = msg['lon'] / 1.0e7
+            alt = msg['alt'] / 1000
+            relative_alt = msg['relative_alt'] / 1000
+            vx = msg['vx']
+            vy = msg['vy']
+            vz = msg['vz']
+            hdg = msg['hdg'] / 1000
         else:
             lat = 0
             lon = 0
@@ -122,18 +125,18 @@ class parametersHandler(tornado.web.RequestHandler):
 
         template_vars = {
             'ip': serverIp,
-            'port': Config.PORT,
-            'wsURL': Config.wsURL,
-            'cam_type': Config.CAM_TYPE,
-            'run_camera': Config.RUN_CAMERA,
-            'is_recording': Config.isRecording,
-            'store_gpx': Config.storeGPX,
-            'rec_start_position': Config.rec_start_position,
-            'record_filename': Config.record_filename,
-            'resolution': Config.RESOLUTION,
-            'rec_framerate': Config.REC_FRAMERATE,
-            'cam_framerate': Config.CAM_FRAMERATE,
-            'jpg_quality': Config.JPG_QUALITY,
+            'port': config.get('PORT'),
+            'wsURL': config.get('WS_URL'),
+            'cam_type': config.get('CAM_TYPE'),
+            'run_camera': config.get('RUN_CAMERA'),
+            'is_recording': config.get('IS_RECORDING'),
+            'store_gpx': config.get('STORE_GPX'),
+            'rec_start_position': config.get('REC_START_POSITION'),
+            'record_filename': config.get('RECORD_FILENAME'),
+            'resolution': config.get('RESOLUTION'),
+            'rec_framerate': config.get('REC_FRAMERATE'),
+            'cam_framerate': config.get('CAM_FRAMERATE'),
+            'jpg_quality': config.get('JPG_QUALITY'),
             'lat': lat,
             'lon': lon,
             'alt': alt,
@@ -142,14 +145,14 @@ class parametersHandler(tornado.web.RequestHandler):
             'vy': vy,
             'vz': vz,
             'hdg': hdg,
-            'mav_satellites_visible': Config.mav_satellites_visible,
-            'framerate_js': Config.framerate_js,
-            'cam_exposure': Config.cam_exposure,
-            'stream_resolution': Config.STREAM_RESOLUTION,
-            'ideal_depth': Gauge.ideal_depth,
-            'min_radius': Gauge.min_radius,
-            'max_radius': Gauge.max_radius,
-            'max_depth_difference': Gauge.max_depth_difference
+            'mav_satellites_visible': config.get('MAV_SATELLITES_VISIBLE'),
+            'framerate_js': config.get('FRAMERATE_JS'),
+            'cam_exposure': config.get('CAM_EXPOSURE'),
+            'stream_resolution': config.get('STREAM_RESOLUTION'),
+            'ideal_depth': config.get('GAUGE.IDEAL_DEPTH'),
+            'min_radius': config.get('GAUGE.MIN_RADIUS'),
+            'max_radius': config.get('GAUGE.MAX_RADIUS'),
+            'max_depth_difference': config.get('GAUGE.MAX_DEPTH_DIFFERENCE')
         }
 
         parametersHtml = templatize(getFile('templates/parameters.html'), template_vars)
@@ -191,19 +194,19 @@ class StatusHandler(tornado.web.RequestHandler):
 
 
     def _get_latlon(self):
-        if Config.mav_msg_GLOBAL_POSITION_INT is not None:
-            msg = Config.mav_msg_GLOBAL_POSITION_INT
-            n_satellites = Config.mav_satellites_visible
+        if config.get('MAV_MSG_GLOBAL_POSITION_INT') is not None:
+            msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
+            n_satellites = config.get('MAV_SATELLITES_VISIBLE')
 
-            if Config.rec_start_position is not None:
-                altitude = msg.alt / 1000.0
-                start_lat, start_lon, start_alt = Config.rec_start_position
-                east, north = gps_to_meters_east_north(start_lat, start_lon, msg.lat/1.0e7, msg.lon/1.0e7)
+            if config.get('REC_START_POSITION') is not None:
+                altitude = msg['alt'] / 1000.0
+                start_lat, start_lon, start_alt = config.get('REC_START_POSITION')
+                east, north = gps_to_meters_east_north(start_lat, start_lon, msg['lat']/1.0e7, msg['lon']/1.0e7)
                 data = {"latlon": f"East: {east:.1f}, North: {north:.1f}, altitude: {altitude}, Satellites: {n_satellites}"}                      
             else:
-                altitude = msg.alt / 1000.0
-                lat = msg.lat / 1.0e7
-                lon = msg.lon / 1.0e7
+                altitude = msg['alt'] / 1000.0
+                lat = msg['lat'] / 1.0e7
+                lon = msg['lon'] / 1.0e7
                 
                 data = {
                     'altitude': altitude,
@@ -214,12 +217,12 @@ class StatusHandler(tornado.web.RequestHandler):
         return None
     
     def _get_record_state(self):
-        return {"isRecording": Config.isRecording}
+        return {"isRecording": config.get('IS_RECORDING')}
     def _get_status(self):
         return {"status": self.status}
 
     def _get_record_filename(self):
-        return {"record_filename": Config.record_filename}
+        return {"record_filename": config.get('RECORD_FILENAME')}
     
     async def get(self):
         while True:
@@ -261,7 +264,7 @@ class RecordHandler(tornado.web.RequestHandler):
             if not os.path.exists("../../data/recording/"):
                 os.makedirs("../../data/recording/")
             
-            Config.isRecording = True
+            config.set('IS_RECORDING', True)
             self.jpg_que = queue.Queue(maxsize=2)
 
   
@@ -269,18 +272,18 @@ class RecordHandler(tornado.web.RequestHandler):
                 logger.info('Starting capture Thread')
                 
                 # Time delay for g_FRAMERATE frames per second
-                frame_interval = 1 / Config.REC_FRAMERATE
-                logger.debug(f"{Config.REC_FRAMERATE = }")
+                frame_interval = 1 / config.get('REC_FRAMERATE')
+                logger.debug(f"{config.get('REC_FRAMERATE') = }")
                 frame_count = 0
 
                 begin_time = time.perf_counter()
 
-                while Config.isRecording:
+                while config.get('IS_RECORDING'):
                     arr = picam2.capture_array()
-                    buffer = simplejpeg.encode_jpeg(arr, quality=Config.JPG_QUALITY, colorspace='RGB', colorsubsampling='420', fastdct=True)
+                    buffer = simplejpeg.encode_jpeg(arr, quality=config.get('JPG_QUALITY'), colorspace='RGB', colorsubsampling='420', fastdct=True)
 
-                    if Config.mav_msg_GLOBAL_POSITION_INT is not None:
-                        msg = Config.mav_msg_GLOBAL_POSITION_INT
+                    if config.get('MAV_MSG_GLOBAL_POSITION_INT') is not None:
+                        msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
                         buffer = inject_gps_data(buffer, msg)
 
                     if self.jpg_que.full():
@@ -297,13 +300,13 @@ class RecordHandler(tornado.web.RequestHandler):
 
             # Define your recording logic in a function
             def record(record_filename):
-                fn_vid = f'../../data/recording/{record_filename}.avi' if Config.RUN_CAMERA else 'No Camera Found'
+                fn_vid = f'../../data/recording/{record_filename}.avi' if config.get('RUN_CAMERA') else 'No Camera Found'
                 logger.info(f"Recording started to {fn_vid}")
                 
                 
-                fn_gpx = f"../../data/recording/{record_filename}.gpx" if Config.mav_msg_GLOBAL_POSITION_INT else 'No position MAV messages found'
+                fn_gpx = f"../../data/recording/{record_filename}.gpx" if config.get('MAV_MSG_GLOBAL_POSITION_INT') else 'No position MAV messages found'
 
-                if Config.mav_msg_GLOBAL_POSITION_INT is not None and Config.storeGPX:
+                if config.get('MAV_MSG_GLOBAL_POSITION_INT') is not None and config.get('STORE_GPX'):
                     gpx = gpxpy.gpx.GPX()
 
                     # Create a new track in our GPX file
@@ -314,8 +317,8 @@ class RecordHandler(tornado.web.RequestHandler):
                     gpx_segment = gpxpy.gpx.GPXTrackSegment()
                     gpx_track.segments.append(gpx_segment)
 
-                    msg = Config.mav_msg_GLOBAL_POSITION_INT
-                    Config.rec_start_position = (msg.lat/1.0e7, msg.lon/1.0e7, msg.alt/1000.0)
+                    msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
+                    config.set('REC_START_POSITION', (msg.lat/1.0e7, msg.lon/1.0e7, msg.alt/1000.0))
 
                     print("Starting GPX track")
                     logger.info(f"Recording started to {fn_gpx}")
@@ -325,27 +328,27 @@ class RecordHandler(tornado.web.RequestHandler):
                 logger.debug('Starting record Thread')
 
                 quality = 90
-                if Config.RUN_CAMERA:
+                if config.get('RUN_CAMERA'):
                     output = FfmpegOutput(fn_vid,)
                     output.start()
                 fps = 0
                 frame_count = 0
                 start_time = time.time()
                 last_time = start_time
-                while Config.isRecording:      
+                while config.get('IS_RECORDING'):      
 
-                    if Config.mav_msg_GLOBAL_POSITION_INT is not None and Config.storeGPX:
-                        msg = Config.mav_msg_GLOBAL_POSITION_INT
+                    if config.get('MAV_MSG_GLOBAL_POSITION_INT') is not None and config.get('STORE_GPX'):
+                        msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
                         altitude = msg.alt / 1000.0
                         lat = msg.lat / 1.0e7
                         lon = msg.lon/ 1.0e7
-                        n_satellites = Config.mav_satellites_visible
+                        n_satellites = config.get('MAV_SATELLITES_VISIBLE')
                         str_n_sats = f'Satellites: {n_satellites}'
                         gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), comment=str_n_sats, speed=n_satellites, symbol='Waypoint'))
                         # todo add photo frame number`
 
 
-                    if Config.RUN_CAMERA:
+                    if config.get('RUN_CAMERA'):
                         try:
                             jpg = self.jpg_que.get(timeout=0.1)
                             output.outputframe(jpg)
@@ -366,36 +369,34 @@ class RecordHandler(tornado.web.RequestHandler):
                         last_time = time.time()
 
 
-                if Config.RUN_CAMERA:
+                if config.get('RUN_CAMERA'):
                     output.stop()
-                if Config.storeGPX:
+                if config.get('STORE_GPX'):
                     with open(fn_gpx, 'w') as f:
                         f.write(gpx.to_xml())
 
             # Create and start a thread running the record function
-            self.rec_thread = threading.Thread(target=record, args=(Config.record_filename,))
+            self.rec_thread = threading.Thread(target=record, args=(config.get('RECORD_FILENAME'),))
             self.rec_thread.daemon = True
             self.rec_thread.start()
 
-            if Config.RUN_CAMERA:
+            if config.get('RUN_CAMERA'):
                 self.cap_thread = threading.Thread(target=capture_arr)
                 self.cap_thread.daemon = True
                 self.cap_thread.start()
 
         else:
             logger.info("Recording stopped")
-            Config.isRecording = False
-            Config.rec_start_position = None
-            move_file_to_complete(str(Config.record_filename), ".avi")
-            move_file_to_complete(str(Config.record_filename), ".gpx")
-
-
+            config.set('IS_RECORDING', False)
+            config.set('REC_START_POSITION', None)
+            move_file_to_complete(str(config.get('RECORD_FILENAME')), ".avi")
+            move_file_to_complete(str(config.get('RECORD_FILENAME')), ".gpx")
 
 
 class FilenameHandler(tornado.web.RequestHandler):
     def post(self):
-        Config.record_filename = self.get_argument('videoFile')
-        logger.info(f"Set Record filename: {Config.record_filename }")
+        config.set('RECORD_FILENAME', self.get_argument('videoFile'))
+        logger.info(f"Set Record filename: {config.get('RECORD_FILENAME')}")
 
 
 class ExposureHandler(tornado.web.RequestHandler):
@@ -451,25 +452,24 @@ class SettingsHandler(tornado.web.RequestHandler):
             picam2 = self.application.settings['picam2']
 
             record_filename = data.get('record_filename')
-            resolution = float(data.get('resolution', 1.0))
-            jpg_quality = int(data.get('jpg_quality', 95))
-            cam_exposure = int(data.get('cam_exposure', 2000))
-            cam_framerate = int(data.get('cam_framerate', 20))
-            rec_framerate = int(data.get('rec_framerate', 2))
+            resolution = float(data.get('resolution'))
+            jpg_quality = int(data.get('jpg_quality'))
+            cam_exposure = int(data.get('cam_exposure'))
+            cam_framerate = int(data.get('cam_framerate'))
+            rec_framerate = int(data.get('rec_framerate'))
             
-            ideal_depth = float(data.get('ideal_depth', -1))
-            min_radius = int(data.get('min_radius', 20))
-            max_radius = int(data.get('max_radius', 80))
+            ideal_depth = float(data.get('ideal_depth'))
+            min_radius = int(data.get('min_radius'))
+            max_radius = int(data.get('max_radius'))
             max_depth_difference = int(data.get('max_depth_difference', 3))
 
             store_gpx = data.get('store_gpx')
             
             if str(store_gpx).lower() == 't' or str(store_gpx).lower() == 'true':
-                    Config.storeGPX = True
+                config.set("STORE_GPX", True)
             else:
-                Config.storeGPX = False
+                config.set("STORE_GPX", False)
 
-                
             if cam_exposure is not None:
                 set_exposure(cam_exposure, picam2)
 
@@ -477,28 +477,28 @@ class SettingsHandler(tornado.web.RequestHandler):
                 set_framerate(cam_framerate, picam2)
 
             if rec_framerate is not None:
-                Config.rec_framerate = rec_framerate
+                config.set("REC_FRAMERATE", rec_framerate)
 
             if record_filename is not None:
-                Config.record_filename = record_filename
+                config.set("RECORD_FILENAME", record_filename)
 
             if resolution is not None:
-                Config.resolution = resolution
+                config.set("RESOLUTION", resolution)
 
             if jpg_quality is not None:
-                Config.jpg_quality = jpg_quality
+                config.set("JPG_QUALITY", jpg_quality)
 
             if ideal_depth is not None:
-                Gauge.ideal_depth = ideal_depth
+                config.set("GAUGE.IDEAL_DEPTH", ideal_depth)
 
             if min_radius is not None:
-                Gauge.min_radius = min_radius
+                config.set("GAUGE.MIN_RADIUS", min_radius)
 
             if max_radius is not None:
-                Gauge.max_radius = max_radius
+                config.set("GAUGE.MAX_RADIUS", max_radius)
 
             if max_depth_difference is not None:
-                Gauge.max_depth_difference = max_depth_difference
+                config.set("GAUGE.MAX_DEPTH_DIFFERENCE", max_depth_difference)
 
             self.write({"status": "success", "message": "Settings updated"})
         except Exception as e:
@@ -513,10 +513,10 @@ class SettingsHandler(tornado.web.RequestHandler):
             self.write({
                 "status": "success",
                 "data": {
-                    "ideal_depth": gauge.ideal_depth,
-                    "min_radius": gauge.min_radius,
-                    "max_radius": gauge.max_radius,
-                    "max_depth_difference": gauge.max_depth_difference
+                    "ideal_depth": config.get("GAUGE.IDEAL_DEPTH"),
+                    "min_radius": config.get("GAUGE.MIN_RADIUS"),
+                    "max_radius": config.get("GAUGE.MAX_RADIUS"),
+                    "max_depth_difference": config.get("GAUGE.MAX_DEPTH_DIFFERENCE")
                 }
             })
         except Exception as e:

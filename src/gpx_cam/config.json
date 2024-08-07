@@ -1,0 +1,38 @@
+{
+    "WS_URL": "ws://my_ip/ws/",
+    "CAM_TYPE": "hq-6mm-CS-pi",
+    "RUN_CAMERA": true,
+    "IS_RECORDING": false,
+    "STORE_GPX": true,
+    "REC_START_POSITION": null,
+    "RECORD_FILENAME": "transect-001",
+    "RESOLUTION": 1.0,
+    "REC_FRAMERATE": 2,
+    "CAM_FRAMERATE": 10,
+    "STREAM_RESOLUTION": {
+        "WIDTH": 640,
+        "HEIGHT": 480
+    },
+    "PORT": 8075,
+    "MAVPORT": 14570,
+    "JPG_QUALITY": 95,
+    "CAM_EXPOSURE": 20000,
+    "GAUGE": {
+        "IDEAL_DEPTH": 3.0,
+        "MIN_RADIUS": 50,
+        "MAX_RADIUS": 200,
+        "MAX_DEPTH_DIFFERENCE": 3
+    },
+    "MAV_MSG_GLOBAL_POSITION_INT": {
+        "time_boot_ms": 2585965,
+        "lat": -275629998,
+        "lon": -484589997,
+        "alt": -190,
+        "relative_alt": -285,
+        "vx": 2,
+        "vy": 2,
+        "vz": -1,
+        "hdg": 27119
+    },
+    "MAV_SATELLITES_VISIBLE": 10
+}
