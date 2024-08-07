@@ -14,8 +14,10 @@ function mapDifferenceToRadius(distance, minRadius, maxRadius, maxDepthDifferenc
 
 function updateGauge(currentDepth, idealDepth, minRadius, maxRadius, maxDepthDifference) {
     const depthDifference = (idealDepth - currentDepth);
+    console.log(depthDifference);
     const currentRadius = mapDifferenceToRadius(depthDifference, minRadius, maxRadius, maxDepthDifference);
-    currentDepthCircle.setAttribute('r', `${currentRadius}`);
+    
+    currentDepthCircle.setAttribute('r', currentRadius);
 }
 
 const currentDepthCircle = document.getElementById('current-depth');
@@ -34,11 +36,12 @@ function fetchGaugeParameters() {
         .then(data => {
             if (data.status === 'success') {
                 idealDepth = data.data.ideal_depth;
+                console.log(idealDepth);
                 minRadius = data.data.min_radius;
                 maxRadius = data.data.max_radius;
                 maxDepthDifference = data.data.max_depth_difference;
                 const idealRadius = mapDifferenceToRadius(0, minRadius, maxRadius, maxDepthDifference);
-                idealDepthCircle.setAttribute('r', `${idealRadius}`);
+                idealDepthCircle.setAttribute('r', idealRadius);
             }
         })
         .catch(error => console.error('Error fetching gauge parameters:', error));

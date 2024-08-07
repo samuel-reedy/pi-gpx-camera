@@ -5,7 +5,7 @@
     <title>Parameters</title>
     <style>
         body {
-            background-color: #282C34;
+            background-color: #222222;
         }
         .parameters-container {
             display: flex;
@@ -14,7 +14,7 @@
             padding: 20px;
         }
         .parameter-group {
-            background-color: rgba(0, 0, 0, 0.1);
+            background-color: #333333;
             gap: 10px;
             border-radius: 10px;
             padding: 10px;
@@ -24,16 +24,20 @@
             color: rgb(255, 255, 255);
             font-family: Arial, sans-serif;
             margin: 5px;
+            font-size: 20px;
         }
         .parameter {
             display: flex;
             justify-content: space-between;
+            align-items: center; /* Add this line to center the text vertically */
             font-family: Arial, sans-serif;
             padding: 3px;
             border-radius: 2px;
-            background-color: rgba(0, 0, 0, 0.25);
+            background-color: rgba(0, 0, 0, 0.1);
             margin: 5px;
             margin-left:30px;
+            height: 30px;
+            font-size: 15px;
         }
         .parameter label {
             /* font-weight: bold; */
@@ -46,9 +50,17 @@
         .parameter input {
             font-weight: bold;
             padding: 5px;
-            background-color: rgb(255, 255, 255);
-            color: rgb(38, 38, 39);
-            border: none;
+            background-color: #222222;
+            color: rgb(255, 255, 255);
+            border-color: white;
+        }
+        #submit {
+            font-weight: bold;
+            padding: 5px;
+            background-color: #0a7900;
+            color: rgb(255, 255, 255);
+            width:100%;
+            height: 40px;
         }
     </style>
 </head>
@@ -64,7 +76,7 @@
                     <span id="ip">$ip</span>
                 </div>
                 <div class="parameter">
-                    <label>PORT:</label>
+                    <label>Port:</label>
                     <span id="port">$port</span>
                 </div>
                 <div class="parameter">
@@ -72,7 +84,7 @@
                     <span id="wsURL">$wsURL</span>
                 </div>
                 <div class="parameter">
-                    <label>CAM TYPE:</label>
+                    <label>Cam Type:</label>
                     <span id="cam_type">$cam_type</span>
                 </div>
             </div>
@@ -81,15 +93,15 @@
             <div class="parameter-group">
                 <h2>Stream</h2>
                 <div class="parameter">
-                    <label>STREAM FRAMERATE:</label>
+                    <label>Framerate:</label>
                     <input type="text" id="cam_framerate" value="$cam_framerate">
                 </div>
                 <div class="parameter">
-                    <label>STREAM RESOLUTION:</label>
+                    <label>Resolution:</label>
                     <span id="stream_resolution">$stream_resolution</span>
                 </div>
                 <div class="parameter">
-                    <label>EXPOSURE:</label>
+                    <label>Exposure:</label>
                     <input type="text" id="cam_exposure" value="$cam_exposure">
                 </div>
             </div>
@@ -98,39 +110,35 @@
             <div class="parameter-group">
                 <h2>Recording</h2>
                 <div class="parameter">
-                    <label>RECORDING FRAMERATE:</label>
+                    <label>Framerate:</label>
                     <input type="text" id="rec_framerate" value="$rec_framerate">
                 </div>
                 <div class="parameter">
-                    <label>STORE GPX:</label>
+                    <label>Store GPX:</label>
                     <input type="text" id="store_gpx" value="$store_gpx">
                 </div>
                 <div class="parameter">
-                    <label>REC START POSITION:</label>
-                    <span id="rec_start_position">$rec_start_position</span>
-                </div>
-                <div class="parameter">
-                    <label>RECORD FILENAME:</label>
+                    <label>Filename:</label>
                     <input type="text" id="record_filename" value="$record_filename">
                 </div>
                 <div class="parameter">
-                    <label>RUN CAMERA:</label>
+                    <label>Run Camera:</label>
                     <span id="run_camera">$run_camera</span>
                 </div>
                 <div class="parameter">
-                    <label>IS RECORDING:</label>
+                    <label>Is Recording:</label>
                     <span id="is_recording">$is_recording</span>
                 </div>
                 <div class="parameter">
-                    <label>RESOLUTION:</label>
+                    <label>Resolution Scale:</label>
                     <input type="text" id="resolution" value="$resolution">
                 </div>
                 <div class="parameter">
-                    <label>JPG QUALITY:</label>
+                    <label>JPG Quality:</label>
                     <input type="text" id="jpg_quality" value="$jpg_quality">
                 </div>
                 <div class="parameter">
-                    <label>FRAMERATE JS:</label>
+                    <label>Framerate JS:</label>
                     <span id="framerate_js">$framerate_js</span>
                 </div>
             </div>
@@ -139,19 +147,19 @@
             <div class="parameter-group">
                 <h2>Gauge</h2>
                 <div class="parameter">
-                    <label>IDEAL_DEPTH:</label>
+                    <label>Ideal Depth:</label>
                     <input type="text" id="ideal_depth" value="$ideal_depth">
                 </div>
                 <div class="parameter">
-                    <label>MIN RADIUS:</label>
+                    <label>Min Radius:</label>
                     <input type="text" id="min_radius" value="$min_radius">
                 </div>
                 <div class="parameter">
-                    <label>MAX RADIUS:</label>
+                    <label>Max Radius:</label>
                     <input type="text" id="max_radius" value="$max_radius">
                 </div>
                 <div class="parameter">
-                    <label>MAX DEPTH DIFFERENCE:</label>
+                    <label>Max Depth Difference:</label>
                     <input type="text" id="max_depth_difference" value="$max_depth_difference">
                 </div>
             </div>
@@ -161,19 +169,19 @@
                 <h2>MAVLINK MESSAGE</h2>
                 
                 <div class="parameter">
-                    <label>LAT:</label>
+                    <label>Latitude:</label>
                     <span id="lat">$lat</span>
                 </div>
                 <div class="parameter">
-                    <label>LON:</label>
+                    <label>Longitude:</label>
                     <span id="lon">$lon</span>
                 </div>
                 <div class="parameter">
-                    <label>ALT:</label>
+                    <label>Altitude:</label>
                     <span id="alt">$alt</span>
                 </div>
                 <div class="parameter">
-                    <label>RELATIVE ALT:</label>
+                    <label>Relative Altitude:</label>
                     <span id="relative_alt">$relative_alt</span>
                 </div>
                 <div class="parameter">
@@ -189,12 +197,16 @@
                     <span id="vz">$vz</span>
                 </div>
                 <div class="parameter">
-                    <label>HDG:</label>
+                    <label>Heading:</label>
                     <span id="hdg">$hdg</span>
                 </div>
                 <div class="parameter">
-                    <label>MAV SATELLITES VISIBLE:</label>
+                    <label>Satellites:</label>
                     <span id="mav_satellites_visible">$mav_satellites_visible</span>
+                </div>
+                <div class="parameter">
+                    <label>Start Position:</label>
+                    <span id="rec_start_position">$rec_start_position</span>
                 </div>
                 
             </div>
@@ -202,7 +214,7 @@
 
             <div class="parameter-group">
                 <div class="parameter">
-                    <button type="submit">Update Parameters</button>
+                    <button id="submit" type="submit">Update Parameters</button>
                 </div>
             </div>
             </form>
@@ -210,7 +222,60 @@
     </div>
 
     <script>
-        // Rest of the JavaScript code...
+        document.getElementById("submit").addEventListener("click", function(event) {
+            event.preventDefault(); // Prevent form submission
+
+            // Create JSON object from form inputs
+            var data = {
+                cam_exposure: document.getElementById("cam_exposure").value,
+                cam_framerate: document.getElementById("cam_framerate").value,
+                rec_framerate: document.getElementById("rec_framerate").value,
+                store_gpx: document.getElementById("store_gpx").value,
+                record_filename: document.getElementById("record_filename").value,
+                resolution: document.getElementById("resolution").value,
+                jpg_quality: document.getElementById("jpg_quality").value,
+                ideal_depth: document.getElementById("ideal_depth").value,
+                min_radius: document.getElementById("min_radius").value,
+                max_radius: document.getElementById("max_radius").value,
+                max_depth_difference: document.getElementById("max_depth_difference").value,
+                ip: document.getElementById("ip").value,
+                port: document.getElementById("port").value,
+                wsURL: document.getElementById("wsURL").value,
+                cam_type: document.getElementById("cam_type").value,
+                stream_resolution: document.getElementById("stream_resolution").value,
+                run_camera: document.getElementById("run_camera").value,
+                is_recording: document.getElementById("is_recording").value,
+                framerate_js: document.getElementById("framerate_js").value,
+                lat: document.getElementById("lat").value,
+                lon: document.getElementById("lon").value,
+                alt: document.getElementById("alt").value,
+                relative_alt: document.getElementById("relative_alt").value,
+                vx: document.getElementById("vx").value,
+                vy: document.getElementById("vy").value,
+                vz: document.getElementById("vz").value,
+                hdg: document.getElementById("hdg").value,
+                mav_satellites_visible: document.getElementById("mav_satellites_visible").value,
+                rec_start_position: document.getElementById("rec_start_position").value
+            };
+
+            // Send JSON data to /settings endpoint
+            fetch("/settings", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Settings updated:", data);
+                // Handle response from server if needed
+            })
+            .catch(error => {
+                console.error("Error updating settings:", error);
+                // Handle error if needed
+            });
+        });
     </script>
 </body>
 </html>
