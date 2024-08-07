@@ -14,7 +14,6 @@ function mapDifferenceToRadius(distance, minRadius, maxRadius, maxDepthDifferenc
 
 function updateGauge(currentDepth, idealDepth, minRadius, maxRadius, maxDepthDifference) {
     const depthDifference = (idealDepth - currentDepth);
-    console.log(depthDifference);
     const currentRadius = mapDifferenceToRadius(depthDifference, minRadius, maxRadius, maxDepthDifference);
     
     currentDepthCircle.setAttribute('r', currentRadius);
@@ -36,7 +35,6 @@ function fetchGaugeParameters() {
         .then(data => {
             if (data.status === 'success') {
                 idealDepth = data.data.ideal_depth;
-                console.log(idealDepth);
                 minRadius = data.data.min_radius;
                 maxRadius = data.data.max_radius;
                 maxDepthDifference = data.data.max_depth_difference;

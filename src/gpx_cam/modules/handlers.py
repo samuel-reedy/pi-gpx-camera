@@ -67,10 +67,9 @@ class indexHandler(tornado.web.RequestHandler):
         template_vars = {
             'ip': serverIp,
             'port': config.get('PORT'),
-            'fps': config.get('FRAMERATE_JS'),
+            'fps': config.get('CAM_FRAMERATE'),
             'record_filename': config.get('RECORD_FILENAME'),
             'exposure': config.get('CAM_EXPOSURE'),
-            'framerate': config.get('CAM_FRAMERATE'),
             'isRecording': 'true' if config.get('IS_RECORDING') else 'false'
         }
         
@@ -85,10 +84,9 @@ class thumbnailHandler(tornado.web.RequestHandler):
         template_vars = {
             'ip': serverIp,
             'port': config.get('PORT'),
-            'fps': config.get('FRAMERATE_JS'),
+            'fps': config.get('CAM_FRAMERATE'),
             'record_filename': config.get('RECORD_FILENAME'),
             'exposure': config.get('CAM_EXPOSURE'),
-            'framerate': config.get('CAM_FRAMERATE'),
             'isRecording': 'true' if config.get('IS_RECORDING') else 'false'
         }
         
@@ -516,7 +514,9 @@ class SettingsHandler(tornado.web.RequestHandler):
                     "ideal_depth": config.get("GAUGE.IDEAL_DEPTH"),
                     "min_radius": config.get("GAUGE.MIN_RADIUS"),
                     "max_radius": config.get("GAUGE.MAX_RADIUS"),
-                    "max_depth_difference": config.get("GAUGE.MAX_DEPTH_DIFFERENCE")
+                    "max_depth_difference": config.get("GAUGE.MAX_DEPTH_DIFFERENCE"),
+                    "cam_framerate": config.get("CAM_FRAMERATE"),
+                    "cam_exposure": config.get("CAM_EXPOSURE")
                 }
             })
         except Exception as e:

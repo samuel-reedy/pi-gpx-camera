@@ -104,7 +104,7 @@ html, body {
     border-radius: 5px; /* Add border radius to create rounded corners */
 }
 
-#fileManagerButton {
+.pageButton{
     background-color: rgb(33, 33, 33);
     color: white;
     font-family: Arial, sans-serif;

@@ -60,14 +60,8 @@ function openFileManager() {
     window.open("http://192.168.2.3:8085", "_blank");
 }
 
-document.addEventListener("DOMContentLoaded", function() {
-    // Fetch config values from the server
-    fetch('/parameters')
-        .then(response => response.json())
-        .then(data => {
-            // Set the input values to the fetched config values
-            document.getElementById('exposureSpinner').value = data.cam_exposure;
-            document.getElementById('framerateSpinner').value = data.cam_framerate;
-        })
-        .catch(error => console.error('Error fetching config values:', error));
-});
+function openParameters() {
+    window.open("http://192.168.2.3:8075/parameters", "_blank");
+}
+
+
