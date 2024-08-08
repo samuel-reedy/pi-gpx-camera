@@ -16,7 +16,19 @@ function updateGauge(currentDepth, idealDepth, minRadius, maxRadius, maxDepthDif
     const depthDifference = (idealDepth - currentDepth);
     const currentRadius = mapDifferenceToRadius(depthDifference, minRadius, maxRadius, maxDepthDifference);
     
+    
+
+    const container = document.querySelector('.container');
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+
+
+
+    const percentageRadius = (currentRadius / 100) * (maxDimension / 2); // divide by 2 for radius
+
+    
     currentDepthCircle.setAttribute('r', currentRadius);
+    
 
     const textElement = document.getElementById('current-depth-text');
     updateTextPosition(textElement, currentDepthCircle, currentDepth, 'right');

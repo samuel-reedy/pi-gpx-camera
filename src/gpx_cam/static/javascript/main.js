@@ -57,11 +57,11 @@ window.onload = function() {
 };
 
 function openFileManager() {
-    window.open("http://192.168.2.3:8085", "_blank");
+    window.open("http://192.168.2.108:8085", "_blank");
 }
 
 function openParameters() {
-    window.open("http://192.168.2.3:8075/parameters", "_blank");
+    window.open("http://192.168.2.108:8075/parameters", "_blank");
 }
 
 
