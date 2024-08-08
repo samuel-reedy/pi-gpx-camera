@@ -44,15 +44,16 @@ from .modules.classes.gauge import Gauge
 
 
 from .modules.classes.configHandler import config
+from .modules.classes.runtimeState import RuntimeState
 
 
 try:
     # assert False
     picam2 = Picamera2()
-    config.set('RUN_CAMERA', True)
+    RuntimeState.RUN_CAMERA = True
 except:
     logger.error("Error in Picamera2, disabling the camera")
-    config.set('RUN_CAMERA', False)
+    RuntimeState.RUN_CAMERA = False
 
 
 
@@ -76,7 +77,7 @@ FOCUS_INC = 0.5
 def process_mavlink_data():
     print("Starting process_mavlink_data")
     logger.info("Starting process_mavlink_data")
-    
+    RuntimeState.MAV_MSG_GLOBAL_POSITION_INT = {}
     try:
         # Start a connection listening to a UDP port
         the_connection = mavutil.mavlink_connection(f"udpin:0.0.0.0:{config.get('MAVPORT')}")
@@ -109,13 +110,14 @@ def process_mavlink_data():
                     'vz': msg.vz,
                     'hdg': msg.hdg
                 }
-                config.set('MAV_MSG_GLOBAL_POSITION_INT', msg_dict)
+                RuntimeState.MAV_MSG_GLOBAL_POSITION_INT = msg_dict
             else:
                 logger.debug("No GLOBAL_POSITION_INT message received")
+                RuntimeState.MAV_MSG_GLOBAL_POSITION_INT = {}
 
             msg = the_connection.recv_match(type='GPS_RAW_INT', blocking=True, timeout=10)
             if msg is not None:
-                config.set('MAV_SATELLITES_VISIBLE', msg.satellites_visible)
+                RuntimeState.MAV_SATELLITES_VISIBLE = msg.satellites_visible
             else:
                 logger.info('No GPS_RAW_INT message received within the timeout period')
     except Exception as e:
@@ -212,7 +214,7 @@ def main():
             # Set the terminal to unbuffered mode
             tty.setcbreak(sys.stdin.fileno())
 
-        if config.get('RUN_CAMERA'):
+        if RuntimeState.RUN_CAMERA:
             output = StreamingOutput()
             encoder = H264Encoder(repeat=True, framerate=config.get('CAM_FRAMERATE'), qp=20, iperiod=config.get('CAM_FRAMERATE'))
             encoder.output = output
@@ -228,12 +230,12 @@ def main():
             
         loop = tornado.ioloop.IOLoop.current()
 
-        if config.get('RUN_CAMERA'):
+        if RuntimeState.RUN_CAMERA:
             output.setLoop(loop)
 
         loop.start()
     except KeyboardInterrupt:
-        if config.get('RUN_CAMERA'):
+        if RuntimeState.RUN_CAMERA:
             picam2.stop_recording()
 
         loop.stop()
