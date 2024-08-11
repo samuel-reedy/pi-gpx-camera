@@ -315,9 +315,11 @@ class RecordHandler(tornado.web.RequestHandler):
 
                 if cameraState.RUN_CAMERA:
                     output.stop()
+                    move_file_to_complete(str(config.get('RECORD_FILENAME')), ".avi")
                 if config.get('STORE_GPX'):
                     with open(fn_gpx, 'w') as f:
                         f.write(gpx.to_xml())
+                    move_file_to_complete(str(config.get('RECORD_FILENAME')), ".gpx")
 
             # Create and start a thread running the record function
             self.rec_thread = threading.Thread(target=record, args=(config.get('RECORD_FILENAME'),))
@@ -333,9 +335,7 @@ class RecordHandler(tornado.web.RequestHandler):
             logger.info("Recording stopped")
             cameraState.IS_RECORDING = False
             mavlinkMessages.REC_START_POSITION = {}
-            move_file_to_complete(str(config.get('RECORD_FILENAME')), ".avi")
-            if (config.get('STORE_GPX')):
-                move_file_to_complete(str(config.get('RECORD_FILENAME')), ".gpx")
+                
 
 
 class FilenameHandler(tornado.web.RequestHandler):

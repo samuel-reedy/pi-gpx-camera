@@ -200,3 +200,9 @@ html, body {
     justify-content: center;
     align-items: center;
 }
+
+#clock {
+    color: rgb(255, 0, 0);
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+}

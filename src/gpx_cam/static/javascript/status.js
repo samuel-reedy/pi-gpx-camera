@@ -1,3 +1,12 @@
+function formatTime(seconds) {
+    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+    const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+    return `${h}:${m}:${s}`;
+}
+
+
+
 setInterval(function() {
     fetch('/settings')
         .then(response => response.json())
@@ -24,17 +33,16 @@ setInterval(function() {
                 statusTextElement.innerHTML = 'Exposure: ' + exposure + ', Analog Gain: ' + analog_gain + ', Digital Gain: ' + digital_gain;
             }
 
-
-            var recordingTimeElement = document.getElementById('clock');
-            if (recordingTimeElement) {
-                time = data.data.rec_time;
-                if (time){
-                    recordingTimeElement.innerHTML = parseFloat(data.rec_time).toFixed(2);
+            var recordingStatus = document.getElementById('recordingStatus');
+            if (recordingStatus) {
+                recordingFilename = data.data.record_filename;
+                time = formatTime(data.data.rec_time);
+                if (data.data.is_recording){
+                    recordingStatus.innerHTML = `Recording Status: [ ${recordingFilename} ] - [ ${time} ]`;
                 }
                 else{
-                    recordingTimeElement.innerHTML = '0.00';
+                    recordingStatus.innerHTML = 'Recording Status [ Not Recording ] - [ 00:00:00 ]';
                 }
-                
             }
         })
         .catch(error => {
