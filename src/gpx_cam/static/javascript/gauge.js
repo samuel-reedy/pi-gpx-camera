@@ -83,12 +83,20 @@ function UpdateDynamicGauge() {
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                idealDepth = data.data.ideal_depth;
-                minRadius = data.data.min_radius;
-                maxRadius = data.data.max_radius;
-                maxDepthDifference = data.data.max_depth_difference;
-                altitude = data.data.mav_msg_global_position_int.alt;
-                updateGauge(altitude, idealDepth, minRadius, maxRadius, maxDepthDifference);
+                parmeters = data.data
+                idealDepth = parmeters.ideal_depth;
+                minRadius = parmeters.min_radius;
+                maxRadius = parmeters.max_radius;
+                maxDepthDifference = parmeters.max_depth_difference;
+
+                if (parmeters.use_dvl){
+                    
+                    currentDistance = parmeters.dvl_distance;
+                }
+                else{
+                    currentDistance = parmeters.mav_msg_global_position_int.alt;
+                }
+                updateGauge(currentDistance, idealDepth, minRadius, maxRadius, maxDepthDifference);
             }
         })
         .catch(error => console.error('Error fetching gauge parameters:', error));

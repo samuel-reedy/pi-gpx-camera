@@ -135,7 +135,7 @@ class parametersHandler(tornado.web.RequestHandler):
             'cam_type': config.get('CAM_TYPE'),
             'run_camera': cameraState.RUN_CAMERA,
             'is_recording': cameraState.IS_RECORDING,
-            'store_gpx': config.get('STORE_GPX'),
+            'store_gpx': 'checked' if config.get('STORE_GPX') else '',
             'rec_start_position': mavlinkMessages.REC_START_POSITION,
             'record_filename': config.get('RECORD_FILENAME'),
             'resolution': config.get('RESOLUTION'),
@@ -161,7 +161,9 @@ class parametersHandler(tornado.web.RequestHandler):
             'rec_time': cameraState.REC_TIME,
             'analog_gain' : cameraState.ANALOG_GAIN,
             'digital_gain' : cameraState.DIGITAL_GAIN,
-            'gpx_rate' : config.get('GPX_RATE')
+            'gpx_rate' : config.get('GPX_RATE'),
+            'dvl_distance' : mavlinkMessages.MAV_RANGEFINDER,
+            'use_dvl': 'checked' if config.get('USE_DVL') else ''
         }
 
         parametersHtml = templatize(getFile('templates/parameters.html'), template_vars)
@@ -410,11 +412,10 @@ class SettingsHandler(tornado.web.RequestHandler):
 
             store_gpx = data.get('store_gpx')
             gpx_rate = data.get('gpx_rate')
-            
-            if str(store_gpx).lower() == 't' or str(store_gpx).lower() == 'true':
-                config.set("STORE_GPX", True)
-            else:
-                config.set("STORE_GPX", False)
+            use_dvl = data.get('use_dvl')
+
+            config.set("STORE_GPX", store_gpx)
+            config.set("USE_DVL", use_dvl)
 
             if (gpx_rate is not None):
                 config.set("GPX_RATE", float(gpx_rate))
@@ -481,7 +482,9 @@ class SettingsHandler(tornado.web.RequestHandler):
                     'max_depth_difference': config.get('GAUGE.MAX_DEPTH_DIFFERENCE'),
                     'rec_time': cameraState.REC_TIME,
                     'analog_gain' : cameraState.ANALOG_GAIN,
-                    'digital_gain' : cameraState.DIGITAL_GAIN
+                    'digital_gain' : cameraState.DIGITAL_GAIN,
+                    'dvl_distance' : mavlinkMessages.MAV_RANGEFINDER,
+                    'use_dvl': config.get('USE_DVL')
                 }
             })
         except Exception as e:

@@ -159,7 +159,7 @@
                 <div class="parameter">
                     <label>Store GPX:</label>
                     <span class="details">Whether to store GPX data.</span>
-                    <input type="text" id="store_gpx" value="$store_gpx">
+                    <input type="checkbox" id="store_gpx" ${store_gpx}>
                 </div>
                 <div class="parameter">
                     <label>GPX Rate (Hz):</label>
@@ -221,6 +221,11 @@
                     <span class="details">The maximum difference in depth for the gauge.</span>
                     <input type="text" id="max_depth_difference" value="$max_depth_difference">
                 </div>
+                <div class="parameter">
+                    <label>Use DVL:</label>
+                    <span class="details">Whether to use the DVL measurement for the gauge.</span>
+                    <input type="checkbox" id="use_dvl" ${use_dvl}>
+                </div>
             </div>
 
 
@@ -277,6 +282,11 @@
                     <span class="details">The starting position of the recording.</span>
                     <span id="rec_start_position">$rec_start_position</span>
                 </div>
+                <div class="parameter">
+                    <label>DVL Distance:</label>
+                    <span class="details">Distance reading from the DVL. </span>
+                    <span id="rec_start_position">$dvl_distance</span>
+                </div>
                 
             </div>
 
@@ -302,7 +312,7 @@
                 cam_exposure: document.getElementById("cam_exposure").value,
                 cam_framerate: document.getElementById("cam_framerate").value,
                 rec_framerate: document.getElementById("rec_framerate").value,
-                store_gpx: document.getElementById("store_gpx").value,
+                store_gpx: document.getElementById("store_gpx").checked,
                 record_filename: document.getElementById("record_filename").value,
                 resolution: document.getElementById("resolution").value,
                 jpg_quality: document.getElementById("jpg_quality").value,
@@ -310,25 +320,9 @@
                 min_radius: document.getElementById("min_radius").value,
                 max_radius: document.getElementById("max_radius").value,
                 max_depth_difference: document.getElementById("max_depth_difference").value,
-                ip: document.getElementById("ip").value,
-                port: document.getElementById("port").value,
-                wsURL: document.getElementById("wsURL").value,
-                cam_type: document.getElementById("cam_type").value,
                 stream_resolution: document.getElementById("stream_resolution").value,
-                run_camera: document.getElementById("run_camera").value,
-                is_recording: document.getElementById("is_recording").value,
-                framerate_js: document.getElementById("framerate_js").value,
-                lat: document.getElementById("lat").value,
-                lon: document.getElementById("lon").value,
-                alt: document.getElementById("alt").value,
-                relative_alt: document.getElementById("relative_alt").value,
-                vx: document.getElementById("vx").value,
-                vy: document.getElementById("vy").value,
-                vz: document.getElementById("vz").value,
-                hdg: document.getElementById("hdg").value,
-                mav_satellites_visible: document.getElementById("mav_satellites_visible").value,
-                rec_start_position: document.getElementById("rec_start_position").value,
-                gpx_rate: document.getElementById("gpx_rate").value
+                gpx_rate: document.getElementById("gpx_rate").value,
+                use_dvl: document.getElementById("use_dvl").checked
             };
 
             // Send JSON data to /settings endpoint

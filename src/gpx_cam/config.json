@@ -1,9 +1,9 @@
 {
     "WS_URL": "ws://my_ip/ws/",
     "CAM_TYPE": "hq-6mm-CS-pi",
-    "STORE_GPX": true,
-    "GPX_RATE": 2,
-    "RECORD_FILENAME": "transect-001",
+    "STORE_GPX": false,
+    "GPX_RATE": 10.0,
+    "RECORD_FILENAME": "testing",
     "RESOLUTION": 1.0,
     "REC_FRAMERATE": 2,
     "CAM_FRAMERATE": 10,
@@ -17,9 +17,11 @@
     "CAM_EXPOSURE": 10000,
     "GAUGE": {
         "IDEAL_DEPTH": -1.0,
-        "MIN_RADIUS": 50,
-        "MAX_RADIUS": 200,
-        "MAX_DEPTH_DIFFERENCE": 3
+        "MIN_RADIUS": 30,
+        "MAX_RADIUS": 70,
+        "MAX_DEPTH_DIFFERENCE": 3,
+        "USE_DVL": false
     },
-    "REC_TIME": 2.2965223179999157
+    "REC_TIME": 2.2965223179999157,
+    "USE_DVL": false
 }

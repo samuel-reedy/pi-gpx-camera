@@ -10,6 +10,7 @@ class MavlinkMessages:
     REC_START_POSITION = {}
     RANGEFINDER = {}
     MAV_SATELLITES_VISIBLE = 0
+    MAV_RANGEFINDER = 0
 
     def process_mavlink_data(*args, **kwargs):    
         try:
@@ -29,6 +30,8 @@ class MavlinkMessages:
             )
 
             while True:
+
+                ### Get the GLOBAL_POSITION_INT message ###
                 msg = the_connection.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=10)
                 if msg:
                     logger.debug(f"Received GLOBAL_POSITION_INT: {msg}")
@@ -48,11 +51,21 @@ class MavlinkMessages:
                 else:
                     logger.debug("No GLOBAL_POSITION_INT message received")
 
+                ### Get the GPS_RAW_INT message ###
                 msg = the_connection.recv_match(type='GPS_RAW_INT', blocking=True, timeout=10)
                 if msg is not None:
                     mavlinkMessages.MAV_SATELLITES_VISIBLE = msg.satellites_visible
                 else:
                     logger.info('No GPS_RAW_INT message received within the timeout period')
+
+                ### Get the RANGEFINDER message ###
+                msg = the_connection.recv_match(type='RANGEFINDER', blocking=True, timeout=10)
+                if msg:
+                    logger.debug(f"Received RANGEFINGER: {msg}")
+                    mavlinkMessages.MAV_RANGEFINDER = msg.distance 
+                else:
+                    logger.debug("No RANGERFINDER message received")                
+
         except Exception as e:
             logger.error(f"An error occurred: {e}")
             print(f"An error occurred: {e}")
