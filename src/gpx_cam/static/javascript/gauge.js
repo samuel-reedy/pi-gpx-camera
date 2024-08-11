@@ -13,6 +13,11 @@ function mapDifferenceToRadius(distance, minRadius, maxRadius, maxDepthDifferenc
 }
 
 function updateGauge(currentDepth, idealDepth, minRadius, maxRadius, maxDepthDifference) {
+    if (isNaN(currentDepth)) {
+        console.log("The distance is NaN");
+        return;
+    }
+    
     const depthDifference = (idealDepth - currentDepth);
     const currentRadius = mapDifferenceToRadius(depthDifference, minRadius, maxRadius, maxDepthDifference);
     
@@ -60,14 +65,25 @@ function fetchGaugeParameters() {
         .catch(error => console.error('Error fetching gauge parameters:', error));
 }
 
+function UpdateDynamicGauge() {
+    fetch('/settings')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                idealDepth = data.data.ideal_depth;
+                minRadius = data.data.min_radius;
+                maxRadius = data.data.max_radius;
+                maxDepthDifference = data.data.max_depth_difference;
+                altitude = data.data.mav_msg_global_position_int.alt;
+                updateGauge(altitude, idealDepth, minRadius, maxRadius, maxDepthDifference);
+            }
+        })
+        .catch(error => console.error('Error fetching gauge parameters:', error));
+}
+
 // Initial fetch
 fetchGaugeParameters();
-
 setInterval(fetchGaugeParameters, 1000);
 
-var source = new EventSource('/status/');
-
-source.onmessage = function(event) {
-    var data = JSON.parse(event.data);
-    updateGauge(data.altitude, idealDepth, minRadius, maxRadius, maxDepthDifference);
-};
+UpdateDynamicGauge();
+setInterval(UpdateDynamicGauge, 100);

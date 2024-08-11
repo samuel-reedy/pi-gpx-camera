@@ -106,10 +106,11 @@ def move_file_to_complete(filename, file_type):
 
         shutil.move(recording_path, complete_path)
         logger.info(f"File moved to complete folder.")
-
-        logger.error(f"File {complete_path} not found in data folder.")
     except FileNotFoundError as e:
         logger.error(f"File {complete_path} not found in data folder: {e}")
+        recording_files = os.listdir(recording_folder)
+        for file in recording_files:
+            logger.info(f"Recording file: {file}")
     except PermissionError as e:
         logger.error(f"Permission denied while moving file {filename}: {e}")
 

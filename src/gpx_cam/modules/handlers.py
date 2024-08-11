@@ -31,6 +31,9 @@ from .classes.configHandler import config
 from .classes.cameraState import cameraState
 from .classes.mavlinkMessages import mavlinkMessages
 
+
+from concurrent.futures import ThreadPoolExecutor
+
 class wsHandler(tornado.websocket.WebSocketHandler):
     connections = []
 
@@ -106,7 +109,7 @@ class parametersHandler(tornado.web.RequestHandler):
         msg = mavlinkMessages.MAV_MSG_GLOBAL_POSITION_INT
 
         # Extract relevant variables from config
-        if (msg is not None):
+        if msg:
             lat = msg['lat'] / 1.0e7
             lon = msg['lon'] / 1.0e7
             alt = msg['alt'] / 1000
@@ -155,7 +158,9 @@ class parametersHandler(tornado.web.RequestHandler):
             'min_radius': config.get('GAUGE.MIN_RADIUS'),
             'max_radius': config.get('GAUGE.MAX_RADIUS'),
             'max_depth_difference': config.get('GAUGE.MAX_DEPTH_DIFFERENCE'),
-            'rec_time': cameraState.REC_TIME
+            'rec_time': cameraState.REC_TIME,
+            'analog_gain' : cameraState.ANALOG_GAIN,
+            'digital_gain' : cameraState.DIGITAL_GAIN
         }
 
         parametersHtml = templatize(getFile('templates/parameters.html'), template_vars)
@@ -184,85 +189,6 @@ def gps_to_meters_east_north(lat1, lon1, lat2, lon2):
 
     return R * x, R * y
 
-class StatusHandler(tornado.web.RequestHandler):
-    clients = set()
-    status = ''
-
-    def initialize(self):
-        self.set_header('Content-Type', 'text/event-stream')
-        self.set_header('Cache-Control', 'no-cache')
-        self.set_header('Access-Control-Allow-Origin', '*')
-        self.set_header('Connection', 'keep-alive')
-        self.count = 0
-
-
-    def _get_latlon(self):
-        msg = mavlinkMessages.MAV_MSG_GLOBAL_POSITION_INT
-        if msg:
-            n_satellites = mavlinkMessages.MAV_SATELLITES_VISIBLE
-            start_position = mavlinkMessages.REC_START_POSITION
-
-            if start_position:
-                altitude = msg['alt'] / 1000.0
-                print(start_position)
-                start_lat = start_position['lat']
-                start_lon = start_position['lon']
-                east, north = gps_to_meters_east_north(start_lat, start_lon, msg['lat']/1.0e7, msg['lon']/1.0e7)
-                data = {"latlon": f"East: {east:.1f}, North: {north:.1f}, altitude: {altitude}, Satellites: {n_satellites}"}                      
-            else:
-                altitude = msg['alt'] / 1000.0
-                lat = msg['lat'] / 1.0e7
-                lon = msg['lon'] / 1.0e7
-                
-                data = {
-                    'altitude': altitude,
-                    'latitude': lat,
-                    'longitude': lon
-                }
-            return data
-        return None
-    
-    def _get_record_state(self):
-        return {"isRecording": cameraState.IS_RECORDING}
-    def _get_status(self):
-        return {"status": self.status}
-
-    def _get_record_filename(self):
-        return {"record_filename": config.get('RECORD_FILENAME')}
-    
-    def _get_record_time(Self):
-        return {"rec_time": cameraState.REC_TIME}
-    
-    async def get(self):
-        while True:
-            if self.request.connection.stream.closed():
-                logger.info("Stream is closed")
-                # break out of generator loop
-                break
-
-            data = self._get_latlon()
-            if data is not None:
-                data.update(self._get_record_state())
-                data.update(self._get_record_filename())
-                data.update(self._get_status())
-                data.update(self._get_record_time())
-                data = json.dumps(data)
-                try:
-                    self.write(f"data: {data} \n\n")
-                    self.count += 1
-                    await self.flush()  # Flush the data to the client
-                except Exception as e:
-                    logger.warning("Error in StatusHandler", e)
-                    pass
-
-            await tornado.gen.sleep(0.2)  # Wait for 1 second
-
-    @classmethod
-    def update_status(cls, status):
-        cls.status = status
-
-
-
 
 class RecordHandler(tornado.web.RequestHandler):
     def post(self):
@@ -281,41 +207,36 @@ class RecordHandler(tornado.web.RequestHandler):
 
             def capture_arr():
                 logger.info('Starting capture Thread')
-                
+
                 # Time delay for g_FRAMERATE frames per second
                 frame_interval = 1 / config.get('REC_FRAMERATE')
                 logger.debug(f"{config.get('REC_FRAMERATE') = }")
+                start_time = time.perf_counter()
+                current_interval = 0
 
                 while cameraState.IS_RECORDING:
-                    start_time = time.perf_counter()
 
-                    arr = picam2.capture_array()
-                    buffer = simplejpeg.encode_jpeg(arr, quality=config.get('JPG_QUALITY'), colorspace='RGB', colorsubsampling='420', fastdct=True)
+                    current_time = time.perf_counter()
+                    cameraState.REC_TIME = current_time - begin_time
 
-                    msg = mavlinkMessages.MAV_MSG_GLOBAL_POSITION_INT
-                    if msg:
-                        buffer = inject_gps_data(buffer, msg)
+                    if (current_time - start_time >= frame_interval * current_interval):
+                        arr = picam2.capture_array()
+                        buffer = simplejpeg.encode_jpeg(arr, quality=config.get('JPG_QUALITY'), colorspace='RGB', colorsubsampling='420', fastdct=True)
 
-                    if self.jpg_que.full():
-                        self.jpg_que.get()  # If the queue is full, remove an item before adding a new one
-                    self.jpg_que.put(buffer)
+                        if self.jpg_que.full(): self.jpg_que.get() # If the queue is full, remove an item before adding a new one
+                        self.jpg_que.put(buffer)
 
-                    cameraState.REC_TIME = time.perf_counter() - begin_time
-                    # Calculate the time to sleep to maintain the desired framerate
-                    elapsed_time = time.perf_counter() - start_time
-                    sleep_time = frame_interval - elapsed_time
-                    if sleep_time > 0:
-                        time.sleep(sleep_time)
-      
+                        current_interval += 1
 
             # Define your recording logic in a function
             def record(record_filename):
                 fn_vid = f'../../data/recording/{record_filename}.avi' if cameraState.RUN_CAMERA else 'No Camera Found'
                 logger.info(f"Recording started to {fn_vid}")
                 
-                msg = mavlinkMessages.MAV_MSG_GLOBAL_POSITION_INT
-                fn_gpx = f"../../data/recording/{record_filename}.gpx" if msg else 'No position MAV messages found'
+                if config.get('STORE_GPX'):
+                    fn_gpx = f"../../data/recording/{record_filename}.gpx"
 
+                msg = mavlinkMessages.MAV_MSG_GLOBAL_POSITION_INT    
                 if msg and config.get('STORE_GPX'):
                     gpx = gpxpy.gpx.GPX()
 
@@ -328,9 +249,9 @@ class RecordHandler(tornado.web.RequestHandler):
                     gpx_track.segments.append(gpx_segment)
 
                     mavlinkMessages.REC_START_POSITION = {
-                        'lat': msg["lat"] / 1.0e7,
-                        'lon': msg["lon"] / 1.0e7,
-                        'alt': msg["alt"] / 1000.0
+                        'lat': msg["lat"],
+                        'lon': msg["lon"],
+                        'alt': msg["alt"]
                     }
 
                     print("Starting GPX track")
@@ -340,31 +261,40 @@ class RecordHandler(tornado.web.RequestHandler):
 
                 logger.debug('Starting record Thread')
 
-                quality = 90
+
                 if cameraState.RUN_CAMERA:
                     output = FfmpegOutput(fn_vid,)
                     output.start()
-                fps = 0
+
                 frame_count = 0
-                start_time = time.time()
+
+                
+
+                gpx_interval = 1 / config.get('GPX_RATE')
+                start_time = time.perf_counter()
+                current_interval = 0     
+
                 last_time = start_time
+
                 while cameraState.IS_RECORDING:      
-                    
-                    msg = mavlinkMessages.MAV_MSG_GLOBAL_POSITION_INT
-                    if msg and config.get('STORE_GPX'):
-                        altitude = msg["alt"] / 1000.0
-                        lat = msg["lat"] / 1.0e7
-                        lon = msg["lon"]/ 1.0e7
-                        n_satellites = mavlinkMessages.MAV_SATELLITES_VISIBLE
-                        str_n_sats = f'Satellites: {n_satellites}'
-                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), comment=str_n_sats, speed=n_satellites, symbol='Waypoint'))
-                        # todo add photo frame number`
-
-
                     if cameraState.RUN_CAMERA:
+                        current_time = time.perf_counter()
+                        if (current_time - start_time >= gpx_interval * current_interval):
+                            msg = mavlinkMessages.MAV_MSG_GLOBAL_POSITION_INT
+                            current_interval += 1
+
+                            if config.get('STORE_GPX'):
+                                altitude = msg["alt"]
+                                lat = msg["lat"]
+                                lon = msg["lon"]
+                                n_satellites = mavlinkMessages.MAV_SATELLITES_VISIBLE
+                                str_n_sats = f'Satellites: {n_satellites}'
+                                gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), comment=str_n_sats, speed=n_satellites, symbol='Waypoint'))
+
                         try:
                             jpg = self.jpg_que.get(timeout=0.1)
                             output.outputframe(jpg)
+
                         except queue.Empty:
                             continue
                         except Exception as e:
@@ -372,7 +302,7 @@ class RecordHandler(tornado.web.RequestHandler):
 
 
                     else:
-                        time.sleep(1)
+                        time.sleep(0.1)
 
 
                     frame_count += 1
@@ -526,12 +456,27 @@ class SettingsHandler(tornado.web.RequestHandler):
             self.write({
                 "status": "success",
                 "data": {
-                    "ideal_depth": config.get("GAUGE.IDEAL_DEPTH"),
-                    "min_radius": config.get("GAUGE.MIN_RADIUS"),
-                    "max_radius": config.get("GAUGE.MAX_RADIUS"),
-                    "max_depth_difference": config.get("GAUGE.MAX_DEPTH_DIFFERENCE"),
-                    "cam_framerate": config.get("CAM_FRAMERATE"),
-                    "cam_exposure": config.get("CAM_EXPOSURE")
+                    'run_camera': cameraState.RUN_CAMERA,
+                    'is_recording': cameraState.IS_RECORDING,
+                    'store_gpx': config.get('STORE_GPX'),
+                    'rec_start_position': mavlinkMessages.REC_START_POSITION,
+                    'record_filename': config.get('RECORD_FILENAME'),
+                    'resolution': config.get('RESOLUTION'),
+                    'rec_framerate': config.get('REC_FRAMERATE'),
+                    'cam_framerate': config.get('CAM_FRAMERATE'),
+                    'jpg_quality': config.get('JPG_QUALITY'),
+                    'mav_msg_global_position_int': mavlinkMessages.MAV_MSG_GLOBAL_POSITION_INT,
+                    'mav_satellites_visible': mavlinkMessages.MAV_SATELLITES_VISIBLE,
+                    'framerate_js': config.get('FRAMERATE_JS'),
+                    'cam_exposure': config.get('CAM_EXPOSURE'),
+                    'stream_resolution': config.get('STREAM_RESOLUTION'),
+                    'ideal_depth': config.get('GAUGE.IDEAL_DEPTH'),
+                    'min_radius': config.get('GAUGE.MIN_RADIUS'),
+                    'max_radius': config.get('GAUGE.MAX_RADIUS'),
+                    'max_depth_difference': config.get('GAUGE.MAX_DEPTH_DIFFERENCE'),
+                    'rec_time': cameraState.REC_TIME,
+                    'analog_gain' : cameraState.ANALOG_GAIN,
+                    'digital_gain' : cameraState.DIGITAL_GAIN
                 }
             })
         except Exception as e:
@@ -539,39 +484,3 @@ class SettingsHandler(tornado.web.RequestHandler):
             self.set_status(500)  # Internal Server Error
             self.write({"status": "error", "message": "Failed to retrieve gauge parameters."})
         self.finish()
-
-class old_StatusHandler(tornado.web.RequestHandler):
-    clients = set()
-    status = ''
-
-    def initialize(self):
-        self.set_header('Content-Type', 'text/event-stream')
-        self.set_header('Cache-Control', 'no-cache')
-        self.set_header('Access-Control-Allow-Origin', '*')
-        self.set_header('Connection', 'keep-alive')
-        self.count = 0
-
-    def open(self):
-        StatusHandler.clients.add(self)
-
-    def on_close(self):
-        StatusHandler.clients.remove(self)
-
-
-    async def get(self):
-        while True:
-            if self.request.connection.stream.closed():
-                logger.debug("Stream is closed")
-                # break out of generator loop
-                break
-            try:
-                self.write(f"data: {self.status} \n\n")
-                await self.flush()
-            except Exception as e:
-                logger.error("Error in SSEHandler", e)
-                pass
-            await tornado.gen.sleep(1)  # Wait for 1 second
-
-    @classmethod
-    def update_status(cls, status):
-        cls.status = status

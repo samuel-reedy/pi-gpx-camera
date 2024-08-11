@@ -3,7 +3,7 @@ import logging
 class ExcludeSpecificLogFilter(logging.Filter):
     def filter(self, record):
         # Exclude log messages containing specific text
-        if '304 GET /settings' in record.getMessage():
+        if '/settings' in record.getMessage():
             return False
         return True
 

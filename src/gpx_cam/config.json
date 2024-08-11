@@ -2,6 +2,7 @@
     "WS_URL": "ws://my_ip/ws/",
     "CAM_TYPE": "hq-6mm-CS-pi",
     "STORE_GPX": true,
+    "GPX_RATE": 2,
     "RECORD_FILENAME": "transect-001",
     "RESOLUTION": 1.0,
     "REC_FRAMERATE": 2,
@@ -13,9 +14,9 @@
     "PORT": 8075,
     "MAVPORT": 14570,
     "JPG_QUALITY": 95,
-    "CAM_EXPOSURE": 20000,
+    "CAM_EXPOSURE": 10000,
     "GAUGE": {
-        "IDEAL_DEPTH": 3.0,
+        "IDEAL_DEPTH": -1.0,
         "MIN_RADIUS": 50,
         "MAX_RADIUS": 200,
         "MAX_DEPTH_DIFFERENCE": 3
