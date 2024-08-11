@@ -160,7 +160,8 @@ class parametersHandler(tornado.web.RequestHandler):
             'max_depth_difference': config.get('GAUGE.MAX_DEPTH_DIFFERENCE'),
             'rec_time': cameraState.REC_TIME,
             'analog_gain' : cameraState.ANALOG_GAIN,
-            'digital_gain' : cameraState.DIGITAL_GAIN
+            'digital_gain' : cameraState.DIGITAL_GAIN,
+            'gpx_rate' : config.get('GPX_RATE')
         }
 
         parametersHtml = templatize(getFile('templates/parameters.html'), template_vars)
@@ -408,11 +409,15 @@ class SettingsHandler(tornado.web.RequestHandler):
             max_depth_difference = int(data.get('max_depth_difference', 3))
 
             store_gpx = data.get('store_gpx')
+            gpx_rate = data.get('gpx_rate')
             
             if str(store_gpx).lower() == 't' or str(store_gpx).lower() == 'true':
                 config.set("STORE_GPX", True)
             else:
                 config.set("STORE_GPX", False)
+
+            if (gpx_rate is not None):
+                config.set("GPX_RATE", float(gpx_rate))
 
             if cam_exposure is not None:
                 set_exposure(cam_exposure, picam2)

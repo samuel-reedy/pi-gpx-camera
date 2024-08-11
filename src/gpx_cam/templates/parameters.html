@@ -162,6 +162,11 @@
                     <input type="text" id="store_gpx" value="$store_gpx">
                 </div>
                 <div class="parameter">
+                    <label>GPX Rate (Hz):</label>
+                    <span class="details">Rate of GPX recording in Hertz</span>
+                    <input type="text" id="gpx_rate" value="$gpx_rate">
+                </div>
+                <div class="parameter">
                     <label>Filename:</label>
                     <span class="details">The filename of the recorded video.</span>
                     <input type="text" id="record_filename" value="$record_filename">
@@ -322,7 +327,8 @@
                 vz: document.getElementById("vz").value,
                 hdg: document.getElementById("hdg").value,
                 mav_satellites_visible: document.getElementById("mav_satellites_visible").value,
-                rec_start_position: document.getElementById("rec_start_position").value
+                rec_start_position: document.getElementById("rec_start_position").value,
+                gpx_rate: document.getElementById("gpx_rate").value
             };
 
             // Send JSON data to /settings endpoint
