@@ -28,6 +28,8 @@ from .logging import logger
 from .classes.ffmpegOutput import FfmpegOutput
 
 from .classes.configHandler import config
+from .classes.cameraState import cameraState
+from .classes.mavlinkMessages import mavlinkMessages
 
 class wsHandler(tornado.websocket.WebSocketHandler):
     connections = []
@@ -72,7 +74,7 @@ class indexHandler(tornado.web.RequestHandler):
             'fps': config.get('CAM_FRAMERATE'),
             'record_filename': config.get('RECORD_FILENAME'),
             'exposure': config.get('CAM_EXPOSURE'),
-            'isRecording': 'true' if config.get('IS_RECORDING') else 'false'
+            'isRecording': 'true' if cameraState.IS_RECORDING else 'false'
         }
         
         centerHtml = templatize(getFile('templates/index.html'), template_vars)
@@ -89,7 +91,7 @@ class thumbnailHandler(tornado.web.RequestHandler):
             'fps': config.get('CAM_FRAMERATE'),
             'record_filename': config.get('RECORD_FILENAME'),
             'exposure': config.get('CAM_EXPOSURE'),
-            'isRecording': 'true' if config.get('IS_RECORDING') else 'false'
+            'isRecording': 'true' if cameraState.IS_RECORDING else 'false'
         }
         
 
@@ -101,7 +103,7 @@ class parametersHandler(tornado.web.RequestHandler):
         server_host = self.request.host.split(':')[0]  # Split to remove port if present
         serverIp = socket.gethostbyname(server_host)  # Resolve host name to IP
         
-        msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
+        msg = mavlinkMessages.MAV_MSG_GLOBAL_POSITION_INT
 
         # Extract relevant variables from config
         if (msg is not None):
@@ -128,10 +130,10 @@ class parametersHandler(tornado.web.RequestHandler):
             'port': config.get('PORT'),
             'wsURL': config.get('WS_URL'),
             'cam_type': config.get('CAM_TYPE'),
-            'run_camera': config.get('RUN_CAMERA'),
-            'is_recording': config.get('IS_RECORDING'),
+            'run_camera': cameraState.RUN_CAMERA,
+            'is_recording': cameraState.IS_RECORDING,
             'store_gpx': config.get('STORE_GPX'),
-            'rec_start_position': config.get('REC_START_POSITION'),
+            'rec_start_position': mavlinkMessages.REC_START_POSITION,
             'record_filename': config.get('RECORD_FILENAME'),
             'resolution': config.get('RESOLUTION'),
             'rec_framerate': config.get('REC_FRAMERATE'),
@@ -145,7 +147,7 @@ class parametersHandler(tornado.web.RequestHandler):
             'vy': vy,
             'vz': vz,
             'hdg': hdg,
-            'mav_satellites_visible': config.get('MAV_SATELLITES_VISIBLE'),
+            'mav_satellites_visible': mavlinkMessages.MAV_SATELLITES_VISIBLE,
             'framerate_js': config.get('FRAMERATE_JS'),
             'cam_exposure': config.get('CAM_EXPOSURE'),
             'stream_resolution': config.get('STREAM_RESOLUTION'),
@@ -153,7 +155,7 @@ class parametersHandler(tornado.web.RequestHandler):
             'min_radius': config.get('GAUGE.MIN_RADIUS'),
             'max_radius': config.get('GAUGE.MAX_RADIUS'),
             'max_depth_difference': config.get('GAUGE.MAX_DEPTH_DIFFERENCE'),
-            'rec_time': config.get('REC_TIME')
+            'rec_time': cameraState.REC_TIME
         }
 
         parametersHtml = templatize(getFile('templates/parameters.html'), template_vars)
@@ -195,13 +197,16 @@ class StatusHandler(tornado.web.RequestHandler):
 
 
     def _get_latlon(self):
-        if config.get('MAV_MSG_GLOBAL_POSITION_INT') is not None:
-            msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
-            n_satellites = config.get('MAV_SATELLITES_VISIBLE')
+        msg = mavlinkMessages.MAV_MSG_GLOBAL_POSITION_INT
+        if msg:
+            n_satellites = mavlinkMessages.MAV_SATELLITES_VISIBLE
+            start_position = mavlinkMessages.REC_START_POSITION
 
-            if config.get('REC_START_POSITION') is not None:
+            if start_position:
                 altitude = msg['alt'] / 1000.0
-                start_lat, start_lon, start_alt = config.get('REC_START_POSITION')
+                print(start_position)
+                start_lat = start_position['lat']
+                start_lon = start_position['lon']
                 east, north = gps_to_meters_east_north(start_lat, start_lon, msg['lat']/1.0e7, msg['lon']/1.0e7)
                 data = {"latlon": f"East: {east:.1f}, North: {north:.1f}, altitude: {altitude}, Satellites: {n_satellites}"}                      
             else:
@@ -218,7 +223,7 @@ class StatusHandler(tornado.web.RequestHandler):
         return None
     
     def _get_record_state(self):
-        return {"isRecording": config.get('IS_RECORDING')}
+        return {"isRecording": cameraState.IS_RECORDING}
     def _get_status(self):
         return {"status": self.status}
 
@@ -226,7 +231,7 @@ class StatusHandler(tornado.web.RequestHandler):
         return {"record_filename": config.get('RECORD_FILENAME')}
     
     def _get_record_time(Self):
-        return {"rec_time": config.get('REC_TIME')}
+        return {"rec_time": cameraState.REC_TIME}
     
     async def get(self):
         while True:
@@ -269,7 +274,7 @@ class RecordHandler(tornado.web.RequestHandler):
             if not os.path.exists("../../data/recording/"):
                 os.makedirs("../../data/recording/")
             
-            config.set('IS_RECORDING', True)
+            cameraState.IS_RECORDING = True
             self.jpg_que = queue.Queue(maxsize=2)
 
             begin_time = time.perf_counter()
@@ -281,21 +286,21 @@ class RecordHandler(tornado.web.RequestHandler):
                 frame_interval = 1 / config.get('REC_FRAMERATE')
                 logger.debug(f"{config.get('REC_FRAMERATE') = }")
 
-                while config.get('IS_RECORDING'):
+                while cameraState.IS_RECORDING:
                     start_time = time.perf_counter()
 
                     arr = picam2.capture_array()
                     buffer = simplejpeg.encode_jpeg(arr, quality=config.get('JPG_QUALITY'), colorspace='RGB', colorsubsampling='420', fastdct=True)
 
-                    if config.get('MAV_MSG_GLOBAL_POSITION_INT') is not None:
-                        msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
+                    msg = mavlinkMessages.MAV_MSG_GLOBAL_POSITION_INT
+                    if msg:
                         buffer = inject_gps_data(buffer, msg)
 
                     if self.jpg_que.full():
                         self.jpg_que.get()  # If the queue is full, remove an item before adding a new one
                     self.jpg_que.put(buffer)
 
-                    config.set('REC_TIME', time.perf_counter() - begin_time)
+                    cameraState.REC_TIME = time.perf_counter() - begin_time
                     # Calculate the time to sleep to maintain the desired framerate
                     elapsed_time = time.perf_counter() - start_time
                     sleep_time = frame_interval - elapsed_time
@@ -305,13 +310,13 @@ class RecordHandler(tornado.web.RequestHandler):
 
             # Define your recording logic in a function
             def record(record_filename):
-                fn_vid = f'../../data/recording/{record_filename}.avi' if config.get('RUN_CAMERA') else 'No Camera Found'
+                fn_vid = f'../../data/recording/{record_filename}.avi' if cameraState.RUN_CAMERA else 'No Camera Found'
                 logger.info(f"Recording started to {fn_vid}")
                 
-                
-                fn_gpx = f"../../data/recording/{record_filename}.gpx" if config.get('MAV_MSG_GLOBAL_POSITION_INT') else 'No position MAV messages found'
+                msg = mavlinkMessages.MAV_MSG_GLOBAL_POSITION_INT
+                fn_gpx = f"../../data/recording/{record_filename}.gpx" if msg else 'No position MAV messages found'
 
-                if config.get('MAV_MSG_GLOBAL_POSITION_INT') is not None and config.get('STORE_GPX'):
+                if msg and config.get('STORE_GPX'):
                     gpx = gpxpy.gpx.GPX()
 
                     # Create a new track in our GPX file
@@ -322,9 +327,11 @@ class RecordHandler(tornado.web.RequestHandler):
                     gpx_segment = gpxpy.gpx.GPXTrackSegment()
                     gpx_track.segments.append(gpx_segment)
 
-                    msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
-                    print(msg)
-                    config.set('REC_START_POSITION', (msg["lat"]/1.0e7, msg["lon"]/1.0e7, msg["alt"]/1000.0))
+                    mavlinkMessages.REC_START_POSITION = {
+                        'lat': msg["lat"] / 1.0e7,
+                        'lon': msg["lon"] / 1.0e7,
+                        'alt': msg["alt"] / 1000.0
+                    }
 
                     print("Starting GPX track")
                     logger.info(f"Recording started to {fn_gpx}")
@@ -334,27 +341,27 @@ class RecordHandler(tornado.web.RequestHandler):
                 logger.debug('Starting record Thread')
 
                 quality = 90
-                if config.get('RUN_CAMERA'):
+                if cameraState.RUN_CAMERA:
                     output = FfmpegOutput(fn_vid,)
                     output.start()
                 fps = 0
                 frame_count = 0
                 start_time = time.time()
                 last_time = start_time
-                while config.get('IS_RECORDING'):      
+                while cameraState.IS_RECORDING:      
                     
-                    if config.get('MAV_MSG_GLOBAL_POSITION_INT') is not None and config.get('STORE_GPX'):
-                        msg = config.get('MAV_MSG_GLOBAL_POSITION_INT')
+                    msg = mavlinkMessages.MAV_MSG_GLOBAL_POSITION_INT
+                    if msg and config.get('STORE_GPX'):
                         altitude = msg["alt"] / 1000.0
                         lat = msg["lat"] / 1.0e7
                         lon = msg["lon"]/ 1.0e7
-                        n_satellites = config.get('MAV_SATELLITES_VISIBLE')
+                        n_satellites = mavlinkMessages.MAV_SATELLITES_VISIBLE
                         str_n_sats = f'Satellites: {n_satellites}'
                         gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=altitude, time=datetime.now(), comment=str_n_sats, speed=n_satellites, symbol='Waypoint'))
                         # todo add photo frame number`
 
 
-                    if config.get('RUN_CAMERA'):
+                    if cameraState.RUN_CAMERA:
                         try:
                             jpg = self.jpg_que.get(timeout=0.1)
                             output.outputframe(jpg)
@@ -375,7 +382,7 @@ class RecordHandler(tornado.web.RequestHandler):
                         last_time = time.time()
 
 
-                if config.get('RUN_CAMERA'):
+                if cameraState.RUN_CAMERA:
                     output.stop()
                 if config.get('STORE_GPX'):
                     with open(fn_gpx, 'w') as f:
@@ -386,15 +393,15 @@ class RecordHandler(tornado.web.RequestHandler):
             self.rec_thread.daemon = True
             self.rec_thread.start()
 
-            if config.get('RUN_CAMERA'):
+            if cameraState.RUN_CAMERA:
                 self.cap_thread = threading.Thread(target=capture_arr)
                 self.cap_thread.daemon = True
                 self.cap_thread.start()
 
         else:
             logger.info("Recording stopped")
-            config.set('IS_RECORDING', False)
-            config.set('REC_START_POSITION', None)
+            cameraState.IS_RECORDING = False
+            mavlinkMessages.REC_START_POSITION = {}
             move_file_to_complete(str(config.get('RECORD_FILENAME')), ".avi")
             if (config.get('STORE_GPX')):
                 move_file_to_complete(str(config.get('RECORD_FILENAME')), ".gpx")

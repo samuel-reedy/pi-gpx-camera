@@ -11,6 +11,7 @@ import json
 
 
 from .classes.configHandler import config
+from .classes.cameraState import cameraState
 
 from .logging import logger
 try:
@@ -35,7 +36,7 @@ def getFile(filePath):
     return content
 
 def set_exposure(exposure, cam):
-    if config.get('RUN_CAMERA'):
+    if cameraState.RUN_CAMERA:
         # clip 100 to 20000
         exposure = max(100, min(exposure, 20000))
         config.set('CAM_EXPOSURE', exposure)
@@ -43,14 +44,14 @@ def set_exposure(exposure, cam):
         logger.debug(f"Set new exposure: {config.get('CAM_EXPOSURE')}")
 
 def set_framerate(exposure, cam):
-    if config.get('RUN_CAMERA'):
+    if cameraState.RUN_CAMERA:
         framerate = max(1, min(exposure, 30))
         config.set('CAM_FRAMERATE', framerate)
         cam.set_controls({'FrameRate': config.get('CAM_FRAMERATE')})
         logger.debug(f"Set new framerate: {config.get('CAM_FRAMERATE')}")
 
 def set_camera(cam, stream_resolution):
-    if config.get('RUN_CAMERA'):
+    if cameraState.RUN_CAMERA:
 
         resolution = [int(dim * config.get('RESOLUTION')) for dim in cam.sensor_resolution]
         main_stream = {'format': 'BGR888', 'size': resolution}

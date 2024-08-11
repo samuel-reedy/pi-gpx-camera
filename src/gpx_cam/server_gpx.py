@@ -40,7 +40,8 @@ from .modules.utils import (
 
 from .modules.classes.streamingOutput import StreamingOutput
 from .modules.classes.gauge import Gauge
-
+from .modules.classes.cameraState import cameraState
+from .modules.classes.mavlinkMessages import mavlinkMessages
 
 
 from .modules.classes.configHandler import config
@@ -49,10 +50,10 @@ from .modules.classes.configHandler import config
 try:
     # assert False
     picam2 = Picamera2()
-    config.set('RUN_CAMERA', True)
+    cameraState.RUN_CAMERA = True
 except:
     logger.error("Error in Picamera2, disabling the camera")
-    config.set('RUN_CAMERA', False)
+    cameraState.RUN_CAMERA = False
 
 
 
@@ -109,13 +110,13 @@ def process_mavlink_data():
                     'vz': msg.vz,
                     'hdg': msg.hdg
                 }
-                config.set('MAV_MSG_GLOBAL_POSITION_INT', msg_dict)
+                mavlinkMessages.MAV_MSG_GLOBAL_POSITION_INT = msg_dict
             else:
                 logger.debug("No GLOBAL_POSITION_INT message received")
 
             msg = the_connection.recv_match(type='GPS_RAW_INT', blocking=True, timeout=10)
             if msg is not None:
-                config.set('MAV_SATELLITES_VISIBLE', msg.satellites_visible)
+                mavlinkMessages.MAV_SATELLITES_VISIBLE = msg.satellites_visible
             else:
                 logger.info('No GPS_RAW_INT message received within the timeout period')
     except Exception as e:
@@ -212,7 +213,7 @@ def main():
             # Set the terminal to unbuffered mode
             tty.setcbreak(sys.stdin.fileno())
 
-        if config.get('RUN_CAMERA'):
+        if cameraState.RUN_CAMERA:
             output = StreamingOutput()
             encoder = H264Encoder(repeat=True, framerate=config.get('CAM_FRAMERATE'), qp=20, iperiod=config.get('CAM_FRAMERATE'))
             encoder.output = output
@@ -228,12 +229,12 @@ def main():
             
         loop = tornado.ioloop.IOLoop.current()
 
-        if config.get('RUN_CAMERA'):
+        if cameraState.RUN_CAMERA:
             output.setLoop(loop)
 
         loop.start()
     except KeyboardInterrupt:
-        if config.get('RUN_CAMERA'):
+        if cameraState.RUN_CAMERA:
             picam2.stop_recording()
 
         loop.stop()
