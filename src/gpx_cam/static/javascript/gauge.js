@@ -6,6 +6,17 @@ function quarticEaseInOut(t) {
     }
 }
 
+
+function setRadius(circle, percentage_radius){
+    const gaugeContainer = document.getElementById('depth-gauge-container');
+    
+    const width = gaugeContainer.clientWidth;
+    const height = gaugeContainer.clientHeight;
+    const radius = Math.min(width, height) / 2 * (percentage_radius / 100);
+
+    circle.setAttribute('r', radius);
+}
+
 function mapDifferenceToRadius(distance, minRadius, maxRadius, maxDepthDifference) {
     const scaledDistance = Math.max(Math.min((distance + maxDepthDifference) / (maxDepthDifference + maxDepthDifference), 1), 0);
     const percentage = quarticEaseInOut(scaledDistance);
@@ -21,7 +32,7 @@ function updateGauge(currentDepth, idealDepth, minRadius, maxRadius, maxDepthDif
     const depthDifference = (idealDepth - currentDepth);
     const currentRadius = mapDifferenceToRadius(depthDifference, minRadius, maxRadius, maxDepthDifference);
     
-    currentDepthCircle.setAttribute('r', currentRadius);
+    setRadius(currentDepthCircle, currentRadius);
 
     const textElement = document.getElementById('current-depth-text');
     updateTextPosition(textElement, currentDepthCircle, currentDepth, 'right');
@@ -56,8 +67,10 @@ function fetchGaugeParameters() {
                 minRadius = data.data.min_radius;
                 maxRadius = data.data.max_radius;
                 maxDepthDifference = data.data.max_depth_difference;
+
                 const idealRadius = mapDifferenceToRadius(0, minRadius, maxRadius, maxDepthDifference);
-                idealDepthCircle.setAttribute('r', idealRadius);
+                setRadius(idealDepthCircle, idealRadius);
+
                 const textElement = document.getElementById('ideal-depth-text');
                 updateTextPosition(textElement, idealDepthCircle, idealDepth, 'left');
             }
