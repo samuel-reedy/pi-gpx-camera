@@ -1,30 +1,26 @@
 import os
 import json
 import logging
-from filelock import FileLock
 
 class ConfigHandler:
     def __init__(self, config_file):
         self.config_file = config_file
-        self.lock_file = f"{config_file}.lock"
         self.config = self.load_config()
 
     def load_config(self):
-        with FileLock(self.lock_file):
-            if os.path.exists(self.config_file):
-                with open(self.config_file, 'r') as file:
-                    content = file.read()
-                    if not content.strip():
-                        logging.warning(f"Config file {self.config_file} is empty.")
-                        return {}
-                    return json.loads(content)
-            logging.warning(f"Config file {self.config_file} does not exist.")
-            return {}
+        if os.path.exists(self.config_file):
+            with open(self.config_file, 'r') as file:
+                content = file.read()
+                if not content.strip():
+                    logging.warning(f"Config file {self.config_file} is empty.")
+                    return {}
+                return json.loads(content)
+        logging.warning(f"Config file {self.config_file} does not exist.")
+        return {}
 
     def save_config(self):
-        with FileLock(self.lock_file):
-            with open(self.config_file, 'w') as file:
-                json.dump(self.config, file, indent=4)
+        with open(self.config_file, 'w') as file:
+            json.dump(self.config, file, indent=4)
 
     def get(self, key, default=None):
         keys = key.split('.')
