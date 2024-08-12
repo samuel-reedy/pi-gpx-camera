@@ -233,6 +233,21 @@
                 <h2>MAVLINK MESSAGE</h2>
                 
                 <div class="parameter">
+                    <label>GPS Timeout (s):</label>
+                    <span class="details">Timeout time for GPS message.</span>
+                    <input type="text" id="timeout_gps" value="$timeout_gps">
+                </div>
+                <div class="parameter">
+                    <label>SATELITTE Timeout (s):</label>
+                    <span class="details">Timeout time for SATELLITE message.</span>
+                    <input type="text" id="timeout_satellite" value="$timeout_satellite">
+                </div>
+                <div class="parameter">
+                    <label>DVL Timeout (s):</label>
+                    <span class="details">Timeout time for DVL message.</span>
+                    <input type="text" id="timeout_dvl" value="$timeout_dvl">
+                </div>
+                <div class="parameter">
                     <label>Latitude:</label>
                     <span class="details">The latitude of the device.</span>
                     <span id="lat">$lat</span>
@@ -322,7 +337,10 @@
                 max_depth_difference: document.getElementById("max_depth_difference").value,
                 stream_resolution: document.getElementById("stream_resolution").value,
                 gpx_rate: document.getElementById("gpx_rate").value,
-                use_dvl: document.getElementById("use_dvl").checked
+                use_dvl: document.getElementById("use_dvl").checked,
+                timeout_gps: document.getElementById("timeout_gps").value,
+                timeout_satellite: document.getElementById("timeout_satellite").value,
+                timeout_dvl: document.getElementById("timeout_dvl").value
             };
 
             // Send JSON data to /settings endpoint

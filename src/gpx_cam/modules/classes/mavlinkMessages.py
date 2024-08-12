@@ -32,7 +32,7 @@ class MavlinkMessages:
             while True:
 
                 ### Get the GLOBAL_POSITION_INT message ###
-                msg = the_connection.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=10)
+                msg = the_connection.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=config.get('TIMEOUT.GPS'))
                 if msg:
                     logger.debug(f"Received GLOBAL_POSITION_INT: {msg}")
                     # Convert msg to a dictionary
@@ -52,14 +52,14 @@ class MavlinkMessages:
                     logger.debug("No GLOBAL_POSITION_INT message received")
 
                 ### Get the GPS_RAW_INT message ###
-                msg = the_connection.recv_match(type='GPS_RAW_INT', blocking=True, timeout=10)
+                msg = the_connection.recv_match(type='GPS_RAW_INT', blocking=True, timeout=config.get('TIMEOUT.SATELLITE'))
                 if msg is not None:
                     mavlinkMessages.MAV_SATELLITES_VISIBLE = msg.satellites_visible
                 else:
                     logger.info('No GPS_RAW_INT message received within the timeout period')
 
                 ### Get the RANGEFINDER message ###
-                msg = the_connection.recv_match(type='RANGEFINDER', blocking=True, timeout=10)
+                msg = the_connection.recv_match(type='RANGEFINDER', blocking=True, timeout=config.get('TIMEOUT.DVL'))
                 if msg:
                     logger.debug(f"Received RANGEFINGER: {msg}")
                     mavlinkMessages.MAV_RANGEFINDER = msg.distance 

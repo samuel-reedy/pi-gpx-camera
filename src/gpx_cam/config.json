@@ -23,5 +23,10 @@
         "USE_DVL": false
     },
     "REC_TIME": 2.2965223179999157,
-    "USE_DVL": false
+    "USE_DVL": false,
+    "TIMEOUT": {
+        "GPS": 1.0,
+        "SATELLITE": 1.0,
+        "DVL": 0.1
+    }
 }

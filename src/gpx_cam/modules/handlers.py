@@ -163,7 +163,10 @@ class parametersHandler(tornado.web.RequestHandler):
             'digital_gain' : cameraState.DIGITAL_GAIN,
             'gpx_rate' : config.get('GPX_RATE'),
             'dvl_distance' : mavlinkMessages.MAV_RANGEFINDER,
-            'use_dvl': 'checked' if config.get('USE_DVL') else ''
+            'use_dvl': 'checked' if config.get('USE_DVL') else '',
+            'timeout_gps': config.get("TIMEOUT.GPS"),
+            'timeout_satellite': config.get("TIMEOUT.SATELLITE"),
+            'timeout_dvl': config.get("TIMEOUT.DVL")
         }
 
         parametersHtml = templatize(getFile('templates/parameters.html'), template_vars)
@@ -417,6 +420,20 @@ class SettingsHandler(tornado.web.RequestHandler):
             config.set("STORE_GPX", store_gpx)
             config.set("USE_DVL", use_dvl)
 
+            timeout_gps = float(data.get('timeout_gps'))
+            timeout_satellite = float(data.get('timeout_satellite'))
+            timeout_dvl = float(data.get('timeout_dvl'))
+
+
+            if (timeout_gps is not None):
+                config.set("TIMEOUT.GPS", timeout_gps)
+
+            if (timeout_satellite is not None):
+                config.set("TIMEOUT.SATELLITE", timeout_satellite)
+
+            if (timeout_dvl is not None):
+                config.set("TIMEOUT.DVL", timeout_dvl)
+
             if (gpx_rate is not None):
                 config.set("GPX_RATE", float(gpx_rate))
 
@@ -484,7 +501,10 @@ class SettingsHandler(tornado.web.RequestHandler):
                     'analog_gain' : cameraState.ANALOG_GAIN,
                     'digital_gain' : cameraState.DIGITAL_GAIN,
                     'dvl_distance' : mavlinkMessages.MAV_RANGEFINDER,
-                    'use_dvl': config.get('USE_DVL')
+                    'use_dvl': config.get('USE_DVL'),
+                    'timeout_gps': config.get("TIMEOUT.GPS"),
+                    'timeout_satellite': config.get("TIMEOUT.SATELLITE"),
+                    'timeout_dvl': config.get("TIMEOUT.DVL"),
                 }
             })
         except Exception as e:
